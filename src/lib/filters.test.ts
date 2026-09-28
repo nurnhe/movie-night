@@ -3,7 +3,7 @@ import { allTags, formatRuntime, matchesFilters, emptyFilters, normalizeTag, par
 import type { Movie } from "./types";
 
 const base: Movie = {
-  id: "1", tmdb_id: 1, imdb_id: null, title: "Paddington 2", year: 2017, runtime: 104, genres: ["Comedy", "Family"], tags: ["cozy"],
+  id: "1", tmdb_id: 1, imdb_id: null, title: "Paddington 2", year: 2017, runtime: 104, genres: ["Comedy", "Family"], tags: ["cozy"], ratings: {},
   rating: 7.6, vote_count: 3000, poster_path: null, overview: null, note: "cozy", added_by: "a@x.com",
   watched: false, watched_at: null, created_at: "2026-09-01T00:00:00Z",
 };

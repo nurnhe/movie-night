@@ -126,6 +126,13 @@ input[type=text], input[type=search], input[type=email], input[type=password], s
 .pill { background: var(--surface-2); border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .pill.good { background: var(--good-soft); color: var(--good); }
 .note { font-size: 13px; margin: 6px 0 0; overflow-wrap: anywhere; }
+.ratings { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 6px; }
+.stars { display: inline-flex; }
+.star { border: 0; background: none; padding: 0 2px; font-size: 20px; line-height: 1; color: var(--line); }
+.star.on { color: var(--gold); }
+.stars:hover .star { color: var(--gold); }
+.stars .star:hover ~ .star { color: var(--line); }
+.rate-prompt { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .links { display: flex; gap: 12px; font-size: 13px; margin-top: 6px; font-weight: 600; }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .actions .btn { padding: 7px 11px; font-size: 13px; }

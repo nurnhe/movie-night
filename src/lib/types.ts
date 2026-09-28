@@ -7,6 +7,7 @@ export interface Movie {
   runtime: number | null;
   genres: string[]; // from TMDB
   tags: string[];   // added by people, lowercase
+  ratings: Record<string, number>; // 1-5 stars by lowercase email, after watching
   rating: number | null;
   vote_count: number | null;
   poster_path: string | null;
@@ -18,7 +19,7 @@ export interface Movie {
   created_at: string;
 }
 
-export type NewMovie = Omit<Movie, "id" | "watched" | "watched_at" | "created_at">;
+export type NewMovie = Omit<Movie, "id" | "watched" | "watched_at" | "created_at" | "ratings">;
 
 export interface Group {
   id: string;

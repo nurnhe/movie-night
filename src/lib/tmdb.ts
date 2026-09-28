@@ -27,19 +27,23 @@ function yearOf(date: string | undefined): number | null {
   return Number.isFinite(y) ? y : null;
 }
 
+type ResultList = { results: Array<{ id: number; title: string; release_date?: string; poster_path: string | null; vote_average?: number; vote_count?: number }> };
+
+const toResults = (data: ResultList): SearchResult[] => data.results.map((r) => ({
+  id: r.id,
+  title: r.title,
+  year: yearOf(r.release_date),
+  poster_path: r.poster_path,
+  rating: r.vote_count ? Math.round((r.vote_average ?? 0) * 10) / 10 : null,
+}));
+
 export async function searchMovies(query: string, signal?: AbortSignal): Promise<SearchResult[]> {
   if (signal?.aborted) return [];
-  const data = await get<{ results: Array<{ id: number; title: string; release_date?: string; poster_path: string | null; vote_average?: number; vote_count?: number }> }>(
-    "/search/movie",
-    { query, include_adult: "false" },
-  );
-  return data.results.slice(0, 8).map((r) => ({
-    id: r.id,
-    title: r.title,
-    year: yearOf(r.release_date),
-    poster_path: r.poster_path,
-    rating: r.vote_count ? Math.round((r.vote_average ?? 0) * 10) / 10 : null,
-  }));
+  return toResults(await get<ResultList>("/search/movie", { query, include_adult: "false" })).slice(0, 8);
+}
+
+export async function recommendations(id: number): Promise<SearchResult[]> {
+  return toResults(await get<ResultList>(`/movie/${id}/recommendations`));
 }
 
 export async function movieDetails(id: number): Promise<Omit<NewMovie, "note" | "added_by" | "tags">> {

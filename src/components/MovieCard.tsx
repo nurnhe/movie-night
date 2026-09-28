@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { formatRuntime, MAX_TAG_LENGTH, MAX_TAGS, normalizeTag } from "../lib/filters";
 import { imdbUrl, letterboxdUrl, posterUrl } from "../lib/tmdb";
 import type { Movie } from "../lib/types";
+import { StarRating } from "./StarRating";
 
 interface Props {
   movie: Movie;
@@ -10,9 +11,11 @@ interface Props {
   onDelete: () => void;
   onAddTag: (tag: string) => void;
   onRemoveTag: (tag: string) => void;
+  me: string;
+  onRate: (stars: number | null) => void;
 }
 
-export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag, onRemoveTag }: Props) {
+export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag, onRemoveTag, me, onRate }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [tagging, setTagging] = useState(false);
   const [draft, setDraft] = useState("");
@@ -28,6 +31,7 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
   }
 
   const poster = posterUrl(m.poster_path);
+  const othersRatings = Object.entries(m.ratings).filter(([email]) => email !== me).sort(([a], [b]) => a.localeCompare(b));
   return (
     <article className={"movie" + (highlighted ? " highlight" : "")}>
       {poster ? <img className="poster" src={poster} alt="" loading="lazy" width={72} height={108} /> : <div className="poster poster-ph" aria-hidden="true">{m.title.slice(0, 1)}</div>}
@@ -56,6 +60,15 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
           )}
           {m.watched && m.watched_at && <span className="pill good">Watched {new Date(m.watched_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>}
         </div>
+        {m.watched && (
+          <div className="ratings">
+            <span className="muted small">Your rating</span>
+            <StarRating value={m.ratings[me] ?? null} onChange={onRate} label={`Your rating for ${m.title}`} />
+            {othersRatings.length > 0 && (
+              <span className="muted small">{othersRatings.map(([email, stars]) => `${email.split("@")[0]} ${"★".repeat(stars)}`).join(" · ")}</span>
+            )}
+          </div>
+        )}
         {m.note && <p className="note">“{m.note}”{m.added_by && <span className="muted"> · {m.added_by.split("@")[0]}</span>}</p>}
         {!m.note && m.added_by && <p className="note muted">Added by {m.added_by.split("@")[0]}</p>}
         <div className="links">

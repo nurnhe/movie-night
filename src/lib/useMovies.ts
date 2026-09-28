@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, FieldPath, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
+import { normalizeRatings } from "./ratings";
 import { db } from "./firebase";
 import type { Movie, NewMovie } from "./types";
 
@@ -20,7 +21,12 @@ export function useMovies(enabled: boolean) {
         setMovies(snap.docs.map((d) => {
           const data = d.data();
           // Older movies have no tags, and hand-written ones may lack genres.
-          return { ...data, id: d.id, genres: Array.isArray(data.genres) ? data.genres : [], tags: Array.isArray(data.tags) ? data.tags : [] } as Movie;
+          return {
+            ...data, id: d.id,
+            genres: Array.isArray(data.genres) ? data.genres : [],
+            tags: Array.isArray(data.tags) ? data.tags : [],
+            ratings: normalizeRatings(data.ratings),
+          } as Movie;
         }));
         setLive(!snap.metadata.fromCache);
         setLoading(false);
@@ -51,5 +57,9 @@ export function useMovies(enabled: boolean) {
   const addTag = (id: string, tag: string) => run(updateDoc(doc(moviesRef, id), { tags: arrayUnion(tag) }));
   const removeTag = (id: string, tag: string) => run(updateDoc(doc(moviesRef, id), { tags: arrayRemove(tag) }));
 
-  return { movies, loading, error, live, add, update, setWatched, remove, addTag, removeTag, clearError: () => setError(null) };
+  // Emails contain dots, so the rating's key has to be a FieldPath rather than "ratings.<email>".
+  const rate = (id: string, email: string, stars: number | null) =>
+    run(updateDoc(doc(moviesRef, id), new FieldPath("ratings", email), stars ?? deleteField()));
+
+  return { movies, loading, error, live, add, update, setWatched, remove, addTag, removeTag, rate, clearError: () => setError(null) };
 }

@@ -4,11 +4,13 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db, firebaseConfigured, SIGNIN_EMAIL_KEY } from "./lib/firebase";
 import { authMessage } from "./lib/authErrors";
 import { moveGroupMoviesToMainList, useGroups } from "./lib/groups";
-import type { Group } from "./lib/types";
+import type { Group, Movie } from "./lib/types";
 import { useMovies } from "./lib/useMovies";
 import { allTags, emptyFilters, matchesFilters, pickRandom, scopeAdders, sortMovies, type Filters, type SortKey } from "./lib/filters";
 import { SignIn } from "./components/SignIn";
 import { AddMovie } from "./components/AddMovie";
+import { StarRating } from "./components/StarRating";
+import { Suggestions } from "./components/Suggestions";
 import { GroupDialog } from "./components/GroupDialog";
 import { FiltersBar } from "./components/FiltersBar";
 import { MovieCard } from "./components/MovieCard";
@@ -111,13 +113,15 @@ function Queue({ email }: { email: string }) {
   const me = email.toLowerCase();
   const [access, setAccess] = useState<"checking" | "member" | "not-member" | "error">("checking");
   const [accessError, setAccessError] = useState("");
-  const { movies, loading, error, live, add, setWatched, remove, addTag, removeTag, clearError } = useMovies(access === "member");
+  const { movies, loading, error, live, add, setWatched, remove, addTag, removeTag, rate, clearError } = useMovies(access === "member");
   const { groups } = useGroups(me);
   const [filters, setFilters] = useState<Filters>(loadFilters);
   const [tab, setTab] = useState<"todo" | "done">("todo");
   const [sort, setSort] = useState<SortKey>("added");
   const [pickId, setPickId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [rateNextId, setRateNextId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const movedGroupMovies = useRef(false);
 
@@ -152,6 +156,11 @@ function Queue({ email }: { email: string }) {
 
   const signOut = () => firebaseSignOut(auth);
   const safe = (p: Promise<unknown>) => p.catch(() => { /* surfaced through error */ });
+  const markWatched = (m: Movie, watched: boolean) => {
+    safe(setWatched(m, watched));
+    setRateNextId(watched && m.ratings[me] == null ? m.id : null);
+  };
+  const rateNext = movies.find((m) => m.id === rateNextId && m.watched && m.ratings[me] == null) ?? null;
 
   if (access !== "member") {
     return (
@@ -186,8 +195,16 @@ function Queue({ email }: { email: string }) {
         pick={pick}
         poolSize={pool.length}
         onRoll={() => setPickId(pickRandom(pool, pickId)?.id ?? null)}
-        onWatched={() => pick && safe(setWatched(pick, true))}
+        onWatched={() => pick && markWatched(pick, true)}
       />
+
+      {rateNext && (
+        <div className="notice rate-prompt" role="status">
+          <span>How was <strong>{rateNext.title}</strong>?</span>
+          <StarRating value={null} onChange={(stars) => { if (stars) safe(rate(rateNext.id, me, stars)); setRateNextId(null); }} label={`Rate ${rateNext.title}`} />
+          <button className="linklike" onClick={() => setRateNextId(null)}>Later</button>
+        </div>
+      )}
 
       <FiltersBar filters={{ ...filters, scope }} onChange={setFilters} tags={tags} groups={groups}
         onNewGroup={() => setDialog({ kind: "create" })} onEditGroup={(group) => setDialog({ kind: "edit", group })} />
@@ -206,6 +223,7 @@ function Queue({ email }: { email: string }) {
               <option value="year">Newest release</option>
               <option value="title">Title A–Z</option>
             </select>
+            <button className="btn" onClick={() => setSuggesting(true)}>Suggestions</button>
             <button className="btn primary" onClick={() => setAdding(true)}>Add a movie</button>
           </div>
         </div>
@@ -216,7 +234,8 @@ function Queue({ email }: { email: string }) {
           ) : shown.length ? (
             shown.map((m) => (
               <MovieCard key={m.id} movie={m} highlighted={m.id === pickId}
-                onWatched={(w) => safe(setWatched(m, w))} onDelete={() => safe(remove(m.id))}
+                onWatched={(w) => markWatched(m, w)} onDelete={() => safe(remove(m.id))}
+                me={me} onRate={(stars) => safe(rate(m.id, me, stars))}
                 onAddTag={(t) => safe(addTag(m.id, t))} onRemoveTag={(t) => safe(removeTag(m.id, t))} />
             ))
           ) : (
@@ -234,6 +253,7 @@ function Queue({ email }: { email: string }) {
 
       <datalist id="tag-suggestions">{customTags.map((t) => <option key={t} value={t} />)}</datalist>
 
+      {suggesting && <Suggestions movies={movies} me={me} userEmail={email} onAdd={add} onClose={() => setSuggesting(false)} />}
       {adding && <AddMovie existing={movies} userEmail={email} onAdd={add} onClose={() => setAdding(false)} />}
       {dialog && (
         <GroupDialog group={dialog.kind === "edit" ? dialog.group : null} me={me} knownEmails={knownEmails}
