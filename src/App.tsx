@@ -23,12 +23,19 @@ export default function App() {
 
   useEffect(() => {
     if (!firebaseConfigured) return;
-    const unsubscribe = onAuthStateChanged(auth, (u) => { setUser(u); setVerified(!!u?.emailVerified); });
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setVerified(!!u?.emailVerified);
+      if (u) setLinkError(""); // don't show a stale link error again after signing out
+    });
     const href = window.location.href;
     if (isSignInWithEmailLink(auth, href)) {
       let email: string | null = null;
       try { email = localStorage.getItem(SIGNIN_EMAIL_KEY); } catch { /* storage unavailable */ }
-      email ??= window.prompt("Confirm the email you used to sign in");
+      if (email == null) {
+        try { email = window.prompt("Confirm the email you used to sign in"); }
+        catch { /* prompt unavailable in this browser context */ }
+      }
       window.history.replaceState(null, "", window.location.pathname);
       if (email) {
         signInWithEmailLink(auth, email.trim(), href)
@@ -240,9 +247,15 @@ function Queue({ email }: { email: string }) {
             ))
           ) : (
             <div className="empty">
-              <strong>{!movies.length ? "Your list is empty" : tab === "done" && !done.length ? "Nothing watched yet" : "No movies match these filters"}</strong>
+              <strong>
+                {!movies.length ? "Your list is empty"
+                  : tab === "done" && !done.length ? "Nothing watched yet"
+                  : tab === "todo" && !todo.length ? "Everything's watched"
+                  : "No movies match these filters"}
+              </strong>
               {!movies.length ? "Add the first movie you want to see. It shows up for everyone right away."
                 : tab === "done" && !done.length ? "Mark a movie as watched and it moves here."
+                : tab === "todo" && !todo.length ? "Add another movie, or check the Watched tab."
                 : <>Try another “Show” option, a longer length or fewer tags. <button className="linklike" onClick={() => setFilters(emptyFilters)}>Clear filters</button></>}
             </div>
           )}

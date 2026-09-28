@@ -1,44 +1,47 @@
 import { useEffect, useState } from "react";
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, FieldPath, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
-import { normalizeRatings } from "./ratings";
 import { db } from "./firebase";
+import { firestoreMessage } from "./firestoreErrors";
+import { normalizeMovie } from "./movies";
 import type { Movie, NewMovie } from "./types";
 
 const moviesRef = collection(db, "movies");
+const RETRY_MS = 4000;
 
 export function useMovies(enabled: boolean) {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     if (!enabled) return;
-    return onSnapshot(
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = onSnapshot(
       query(moviesRef, orderBy("created_at", "desc")),
       { includeMetadataChanges: true },
       (snap) => {
-        setMovies(snap.docs.map((d) => {
-          const data = d.data();
-          // Older movies have no tags, and hand-written ones may lack genres.
-          return {
-            ...data, id: d.id,
-            genres: Array.isArray(data.genres) ? data.genres : [],
-            tags: Array.isArray(data.tags) ? data.tags : [],
-            ratings: normalizeRatings(data.ratings),
-          } as Movie;
-        }));
+        setMovies(snap.docs.map((d) => normalizeMovie(d.id, d.data())));
         setLive(!snap.metadata.fromCache);
         setLoading(false);
       },
-      (err) => { setError(err.message); setLive(false); setLoading(false); },
+      () => {
+        // A subscribe/read failure isn't a write failure, so it doesn't belong in the "didn't save" banner.
+        // The sync dot already shows "Connecting…"; retry quietly so access restored elsewhere (e.g. re-added
+        // to members) recovers the list without needing a reload.
+        setLive(false);
+        setLoading(false);
+        retryTimer = setTimeout(() => setRetryTick((t) => t + 1), RETRY_MS);
+      },
     );
-  }, [enabled]);
+    return () => { clearTimeout(retryTimer); unsubscribe(); };
+  }, [enabled, retryTick]);
 
   const run = async (p: Promise<unknown>) => {
     try { await p; setError(null); }
     catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const message = firestoreMessage(e);
       setError(message);
       throw new Error(message);
     }

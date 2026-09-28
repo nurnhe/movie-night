@@ -59,6 +59,7 @@ input[type=text], input[type=search], input[type=email], input[type=password], s
 .lede { font-size: 16px; margin: 0; }
 .signin-form { display: grid; gap: 10px; }
 .notice, .banner { background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; margin: 0; }
+.banner { position: sticky; top: 8px; z-index: 10; box-shadow: var(--shadow); background: color-mix(in srgb, var(--bad) 12%, var(--surface)); }
 
 /* The pick: a ticket with a tear-off stub */
 .ticket { position: relative; background: var(--ticket); color: var(--ticket-ink); border-radius: 14px; padding: 22px 24px;
@@ -149,7 +150,7 @@ input[type=text], input[type=search], input[type=email], input[type=password], s
 
 .dialog { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); box-shadow: var(--shadow); }
 .dialog::backdrop { background: rgba(10,12,20,.5); }
-.dialog-body { padding: 20px; display: grid; gap: 10px; }
+.dialog-body { padding: 20px; display: grid; gap: 10px; overflow-y: auto; max-height: calc(100dvh - 32px); overscroll-behavior: contain; }
 .dialog h2 { margin: 0 0 4px; font-family: var(--display); font-size: 28px; font-weight: 800; text-transform: uppercase; }
 .results { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; }
 .results li { display: flex; align-items: center; gap: 12px; padding: 6px; border-radius: 10px; background: var(--surface-2); }
