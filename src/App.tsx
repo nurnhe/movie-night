@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { isSignInWithEmailLink, onAuthStateChanged, signInWithEmailLink, signOut as firebaseSignOut, type User } from "firebase/auth";
+import { isSignInWithEmailLink, onAuthStateChanged, sendEmailVerification, signInWithEmailLink, signOut as firebaseSignOut, type User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db, firebaseConfigured, SIGNIN_EMAIL_KEY } from "./lib/firebase";
+import { authMessage } from "./lib/authErrors";
 import { useMovies } from "./lib/useMovies";
 import { emptyFilters, matchesFilters, pickRandom, sortMovies, type Filters, type SortKey } from "./lib/filters";
 import { SignIn } from "./components/SignIn";
@@ -12,11 +13,12 @@ import { PickPanel } from "./components/PickPanel";
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [verified, setVerified] = useState(false);
   const [linkError, setLinkError] = useState("");
 
   useEffect(() => {
     if (!firebaseConfigured) return;
-    const unsubscribe = onAuthStateChanged(auth, setUser);
+    const unsubscribe = onAuthStateChanged(auth, (u) => { setUser(u); setVerified(!!u?.emailVerified); });
     const href = window.location.href;
     if (isSignInWithEmailLink(auth, href)) {
       let email: string | null = null;
@@ -26,7 +28,7 @@ export default function App() {
       if (email) {
         signInWithEmailLink(auth, email.trim(), href)
           .then(() => { try { localStorage.removeItem(SIGNIN_EMAIL_KEY); } catch { /* storage unavailable */ } })
-          .catch((e) => setLinkError(e instanceof Error ? e.message : "That sign-in link didn't work. Send a new one."));
+          .catch((e) => setLinkError(authMessage(e)));
       }
     }
     return unsubscribe;
@@ -35,7 +37,56 @@ export default function App() {
   if (!firebaseConfigured) return <Setup />;
   if (user === undefined) return null;
   if (!user) return <SignIn key={linkError} initialError={linkError} />;
+  if (!verified) return <VerifyEmail user={user} onVerified={() => setVerified(true)} />;
   return <Queue email={user.email ?? ""} />;
+}
+
+function VerifyEmail({ user, onVerified }: { user: User; onVerified: () => void }) {
+  const [state, setState] = useState<"idle" | "busy" | "sent">("idle");
+  const [message, setMessage] = useState("");
+
+  async function send() {
+    setState("busy");
+    setMessage("");
+    try {
+      await sendEmailVerification(user, { url: window.location.origin + window.location.pathname });
+      setState("sent");
+    } catch (e) {
+      setMessage(authMessage(e));
+      setState("idle");
+    }
+  }
+
+  async function recheck() {
+    setMessage("");
+    try {
+      await user.reload();
+      if (!auth.currentUser?.emailVerified) {
+        setMessage("Not verified yet. Click the link in the email first, then try again.");
+        return;
+      }
+      await auth.currentUser.getIdToken(true); // the list's access rules read the verified flag from this token
+      onVerified();
+    } catch (e) {
+      setMessage(authMessage(e));
+    }
+  }
+
+  return (
+    <main className="signin">
+      <h1 className="brand">Movie Night <span>Queue</span></h1>
+      <p className="lede">One more step: confirm that <strong>{user.email}</strong> is your email. You only need to do this once.</p>
+      {state === "sent" && <p className="notice">Sent. Open the email, click the link, then come back here.</p>}
+      <div className="signin-form">
+        <button className="btn primary" onClick={send} disabled={state === "busy"}>
+          {state === "busy" ? "Sending…" : state === "sent" ? "Send it again" : "Send verification email"}
+        </button>
+        <button className="btn" onClick={recheck}>I've clicked the link</button>
+        {message && <p className="error">{message}</p>}
+      </div>
+      <p className="muted small"><button className="linklike" onClick={() => firebaseSignOut(auth)}>Sign out</button></p>
+    </main>
+  );
 }
 
 function Setup() {
