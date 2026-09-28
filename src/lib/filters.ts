@@ -5,18 +5,18 @@ export interface Filters {
   tags: string[];        // genres or custom tags; match any
   maxRuntime: number | null;
   minRating: number | null;
-  scope: string; // "" everyone, "mine", or "group:<id>"
+  scope: string; // "" everything, or a shared_with value: "all", "me", "group:<id>"
 }
 
 export const emptyFilters: Filters = { search: "", tags: [], maxRuntime: null, minRating: null, scope: "" };
 
-export function matchesFilters(m: Movie, f: Filters, adders: string[] | null = null): boolean {
+export function matchesFilters(m: Movie, f: Filters): boolean {
   const q = f.search.trim().toLowerCase();
   if (q && !m.title.toLowerCase().includes(q) && !(m.note ?? "").toLowerCase().includes(q) && !m.tags.some((t) => t.includes(q))) return false;
   if (f.tags.length && ![...m.genres, ...m.tags].some((t) => f.tags.includes(t))) return false;
   if (f.maxRuntime != null && (m.runtime == null || m.runtime > f.maxRuntime)) return false;
   if (f.minRating != null && (m.rating == null || m.rating < f.minRating)) return false;
-  if (adders && !adders.includes((m.added_by ?? "").toLowerCase())) return false;
+  if (f.scope && m.shared_with !== f.scope) return false;
   return true;
 }
 
@@ -34,12 +34,6 @@ export function parseTags(text: string): string[] {
 
 export function allTags(movies: Pick<Movie, "genres" | "tags">[]): string[] {
   return [...new Set(movies.flatMap((m) => [...m.genres, ...m.tags]))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-}
-
-export function scopeAdders(scope: string, me: string, groups: { id: string; members: string[] }[]): string[] | null {
-  if (scope === "mine") return [me];
-  if (scope.startsWith("group:")) return groups.find((g) => `group:${g.id}` === scope)?.members ?? null;
-  return null;
 }
 
 export function pickRandom<T extends { id: string }>(pool: T[], avoidId: string | null, rand = Math.random): T | null {

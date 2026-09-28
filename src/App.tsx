@@ -4,9 +4,9 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db, firebaseConfigured, SIGNIN_EMAIL_KEY } from "./lib/firebase";
 import { authMessage } from "./lib/authErrors";
 import { moveGroupMoviesToMainList, useGroups } from "./lib/groups";
-import type { Group, Movie } from "./lib/types";
+import type { Group, Movie, NewMovie } from "./lib/types";
 import { useMovies } from "./lib/useMovies";
-import { allTags, emptyFilters, matchesFilters, pickRandom, scopeAdders, sortMovies, type Filters, type SortKey } from "./lib/filters";
+import { allTags, emptyFilters, matchesFilters, pickRandom, sortMovies, type Filters, type SortKey } from "./lib/filters";
 import { SignIn } from "./components/SignIn";
 import { AddMovie } from "./components/AddMovie";
 import { StarRating } from "./components/StarRating";
@@ -114,14 +114,22 @@ function loadFilters(): Filters {
   try { return { ...emptyFilters, ...JSON.parse(localStorage.getItem("mnq-filters") ?? "{}") }; } catch { return emptyFilters; }
 }
 
+const SHARE_KEY = "mnq-share";
+
+function loadShare(): string {
+  try { return localStorage.getItem(SHARE_KEY) ?? "all"; } catch { return "all"; }
+}
+
 type DialogState = { kind: "create" } | { kind: "edit"; group: Group } | null;
 
 function Queue({ email }: { email: string }) {
   const me = email.toLowerCase();
   const [access, setAccess] = useState<"checking" | "member" | "not-member" | "error">("checking");
   const [accessError, setAccessError] = useState("");
-  const { movies, loading, error, live, add, setWatched, remove, addTag, removeTag, rate, clearError } = useMovies(access === "member");
   const { groups } = useGroups(me);
+  const groupIds = useMemo(() => groups.map((g) => g.id), [groups]);
+  const { movies, loading, error, live, add, setWatched, remove, addTag, removeTag, rate, share, clearError } = useMovies(access === "member", me, groupIds);
+  const [lastShare, setLastShare] = useState(loadShare);
   const [filters, setFilters] = useState<Filters>(loadFilters);
   const [tab, setTab] = useState<"todo" | "done">("todo");
   const [sort, setSort] = useState<SortKey>("added");
@@ -145,8 +153,16 @@ function Queue({ email }: { email: string }) {
     moveGroupMoviesToMainList(groups.map((g) => g.id), movies).catch(() => { /* tried again next visit */ });
   }, [access, loading, groups, movies]);
 
-  const scope = filters.scope.startsWith("group:") && !groups.some((g) => `group:${g.id}` === filters.scope) ? "" : filters.scope;
-  const adders = useMemo(() => scopeAdders(scope, me, groups), [scope, me, groups]);
+  const isKnownAudience = (value: string) => value === "all" || value === "me" || groups.some((g) => `group:${g.id}` === value);
+  // A saved filter or share choice can point at a group you've since left, or an older filter option.
+  const scope = filters.scope && !isKnownAudience(filters.scope) ? "" : filters.scope;
+  const active = useMemo(() => ({ ...filters, scope }), [filters, scope]);
+  const defaultShare = isKnownAudience(lastShare) ? lastShare : "all";
+  const addMovie = (m: NewMovie, sharedWith: string) => {
+    setLastShare(sharedWith);
+    try { localStorage.setItem(SHARE_KEY, sharedWith); } catch { /* storage unavailable */ }
+    return add(m, sharedWith);
+  };
   const knownEmails = useMemo(
     () => [me, ...movies.map((m) => m.added_by), ...groups.flatMap((g) => g.members)],
     [me, movies, groups],
@@ -154,11 +170,11 @@ function Queue({ email }: { email: string }) {
   // Keep selected tags visible even if no movie has them any more, so they can be turned off.
   const tags = useMemo(() => allTags([...movies, { genres: [], tags: filters.tags }]), [movies, filters.tags]);
   const customTags = useMemo(() => [...new Set(movies.flatMap((m) => m.tags))].sort(), [movies]);
-  const pool = useMemo(() => movies.filter((m) => !m.watched && matchesFilters(m, filters, adders)), [movies, filters, adders]);
-  const inScope = adders ? movies.filter((m) => matchesFilters(m, emptyFilters, adders)) : movies;
+  const pool = useMemo(() => movies.filter((m) => !m.watched && matchesFilters(m, active)), [movies, active]);
+  const inScope = scope ? movies.filter((m) => m.shared_with === scope) : movies;
   const todo = inScope.filter((m) => !m.watched);
   const done = inScope.filter((m) => m.watched);
-  const shown = sortMovies((tab === "todo" ? todo : done).filter((m) => matchesFilters(m, filters, adders)), sort);
+  const shown = sortMovies((tab === "todo" ? todo : done).filter((m) => matchesFilters(m, active)), sort);
   const pick = movies.find((m) => m.id === pickId && !m.watched) ?? null;
 
   const signOut = () => firebaseSignOut(auth);
@@ -208,7 +224,7 @@ function Queue({ email }: { email: string }) {
       {rateNext && (
         <div className="notice rate-prompt" role="status">
           <span>How was <strong>{rateNext.title}</strong>?</span>
-          <StarRating value={null} onChange={(stars) => { if (stars) safe(rate(rateNext.id, me, stars)); setRateNextId(null); }} label={`Rate ${rateNext.title}`} />
+          <StarRating value={null} onChange={(stars) => { if (stars) safe(rate(rateNext, stars)); setRateNextId(null); }} label={`Rate ${rateNext.title}`} />
           <button className="linklike" onClick={() => setRateNextId(null)}>Later</button>
         </div>
       )}
@@ -241,9 +257,10 @@ function Queue({ email }: { email: string }) {
           ) : shown.length ? (
             shown.map((m) => (
               <MovieCard key={m.id} movie={m} highlighted={m.id === pickId}
-                onWatched={(w) => markWatched(m, w)} onDelete={() => safe(remove(m.id))}
-                me={me} onRate={(stars) => safe(rate(m.id, me, stars))}
-                onAddTag={(t) => safe(addTag(m.id, t))} onRemoveTag={(t) => safe(removeTag(m.id, t))} />
+                onWatched={(w) => markWatched(m, w)} onDelete={() => safe(remove(m))}
+                me={me} onRate={(stars) => safe(rate(m, stars))}
+                onAddTag={(t) => safe(addTag(m, t))} onRemoveTag={(t) => safe(removeTag(m, t))}
+                groups={groups} onShare={(sharedWith) => safe(share(m, sharedWith))} />
             ))
           ) : (
             <div className="empty">
@@ -266,8 +283,8 @@ function Queue({ email }: { email: string }) {
 
       <datalist id="tag-suggestions">{customTags.map((t) => <option key={t} value={t} />)}</datalist>
 
-      {suggesting && <Suggestions movies={movies} me={me} userEmail={email} onAdd={add} onClose={() => setSuggesting(false)} />}
-      {adding && <AddMovie existing={movies} userEmail={email} onAdd={add} onClose={() => setAdding(false)} />}
+      {suggesting && <Suggestions movies={movies} me={me} userEmail={email} groups={groups} defaultShare={defaultShare} onAdd={addMovie} onClose={() => setSuggesting(false)} />}
+      {adding && <AddMovie existing={movies} userEmail={email} groups={groups} defaultShare={defaultShare} onAdd={addMovie} onClose={() => setAdding(false)} />}
       {dialog && (
         <GroupDialog group={dialog.kind === "edit" ? dialog.group : null} me={me} knownEmails={knownEmails}
           onCreated={(id) => setFilters((f) => ({ ...f, scope: `group:${id}` }))} onClose={() => setDialog(null)} />

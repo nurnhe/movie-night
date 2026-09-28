@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
 import { formatRuntime, MAX_TAG_LENGTH, MAX_TAGS, normalizeTag } from "../lib/filters";
 import { imdbUrl, letterboxdUrl, posterUrl } from "../lib/tmdb";
-import type { Movie } from "../lib/types";
+import { canChangeSharing, sharingLabel } from "../lib/sharing";
+import type { Group, Movie } from "../lib/types";
+import { ShareSelect } from "./ShareSelect";
 import { StarRating } from "./StarRating";
 
 interface Props {
@@ -13,9 +15,11 @@ interface Props {
   onRemoveTag: (tag: string) => void;
   me: string;
   onRate: (stars: number | null) => void;
+  groups: Group[];
+  onShare: (sharedWith: string) => void;
 }
 
-export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag, onRemoveTag, me, onRate }: Props) {
+export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag, onRemoveTag, me, onRate, groups, onShare }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [tagging, setTagging] = useState(false);
   const [draft, setDraft] = useState("");
@@ -31,6 +35,7 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
   }
 
   const poster = posterUrl(m.poster_path);
+  const shareLabel = sharingLabel(m.shared_with, groups);
   const othersRatings = Object.entries(m.ratings).filter(([email]) => email !== me).sort(([a], [b]) => a.localeCompare(b));
   return (
     <article className={"movie" + (highlighted ? " highlight" : "")}>
@@ -38,6 +43,7 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
       <div className="movie-body">
         <h3>{m.title}{m.year && <span className="yr">{m.year}</span>}</h3>
         <div className="meta">
+          {shareLabel && <span className="pill share" title="Who can see this movie">{shareLabel}</span>}
           {m.rating != null && <span className="rating" title={`${m.vote_count ?? 0} votes on TMDB`}>★ {m.rating.toFixed(1)}</span>}
           {m.runtime != null && <span className="runtime">{formatRuntime(m.runtime)}</span>}
           {m.genres.map((g) => <span key={g} className="tag">{g}</span>)}
@@ -79,11 +85,16 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
       <div className="actions">
         {confirming ? (
           <>
-            <button className="btn danger" onClick={onDelete}>Delete for everyone</button>
+            <button className="btn danger" onClick={onDelete}>
+              {m.shared_with === "all" ? "Delete for everyone" : m.shared_with === "me" ? "Delete" : "Delete for the group"}
+            </button>
             <button className="btn" onClick={() => setConfirming(false)}>Keep</button>
           </>
         ) : (
           <>
+            {canChangeSharing(m, me) && (
+              <ShareSelect className="share-select" label={`Who sees ${m.title}`} value={m.shared_with} onChange={onShare} groups={groups} />
+            )}
             <button className="btn" onClick={() => onWatched(!m.watched)}>{m.watched ? "Move back to list" : "Mark watched"}</button>
             <button className="btn ghost danger" aria-label={`Delete ${m.title}`} onClick={() => setConfirming(true)}>Delete</button>
           </>

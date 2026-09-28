@@ -1,22 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { movieDetails, posterUrl, searchMovies, tmdbConfigured, type SearchResult } from "../lib/tmdb";
 import { parseTags } from "../lib/filters";
-import type { Movie, NewMovie } from "../lib/types";
+import type { Group, Movie, NewMovie } from "../lib/types";
+import { ShareSelect } from "./ShareSelect";
 
 interface Props {
   existing: Movie[];
   userEmail: string;
-  onAdd: (m: NewMovie) => Promise<void>;
+  groups: Group[];
+  defaultShare: string;
+  onAdd: (m: NewMovie, sharedWith: string) => Promise<void>;
   onClose: () => void;
 }
 
-export function AddMovie({ existing, userEmail, onAdd, onClose }: Props) {
+export function AddMovie({ existing, userEmail, groups, defaultShare, onAdd, onClose }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [tagsText, setTagsText] = useState("");
+  const [sharedWith, setSharedWith] = useState(defaultShare);
   const [busyId, setBusyId] = useState<number | "manual" | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
 
@@ -42,7 +46,7 @@ export function AddMovie({ existing, userEmail, onAdd, onClose }: Props) {
     try {
       const details = await movieDetails(r.id);
       const genres = details.genres.map((g) => g.toLowerCase());
-      await onAdd({ ...details, note: note.trim() || null, added_by: userEmail, tags: parseTags(tagsText).filter((t) => !genres.includes(t)) });
+      await onAdd({ ...details, note: note.trim() || null, added_by: userEmail, tags: parseTags(tagsText).filter((t) => !genres.includes(t)) }, sharedWith);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't add that movie.");
@@ -55,7 +59,7 @@ export function AddMovie({ existing, userEmail, onAdd, onClose }: Props) {
     if (!title) return;
     setBusyId("manual");
     try {
-      await onAdd({ tmdb_id: null, imdb_id: null, title, year: null, runtime: null, genres: [], rating: null, vote_count: null, poster_path: null, overview: null, note: note.trim() || null, added_by: userEmail, tags: parseTags(tagsText) });
+      await onAdd({ tmdb_id: null, imdb_id: null, title, year: null, runtime: null, genres: [], rating: null, vote_count: null, poster_path: null, overview: null, note: note.trim() || null, added_by: userEmail, tags: parseTags(tagsText) }, sharedWith);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't add that movie.");
@@ -74,6 +78,8 @@ export function AddMovie({ existing, userEmail, onAdd, onClose }: Props) {
         <input id="note" type="text" placeholder="Why you want to watch it" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
         <label htmlFor="tags" className="label">Tags (optional) <span className="label-hint">separate with commas</span></label>
         <input id="tags" type="text" placeholder="e.g. cozy, date night" maxLength={300} value={tagsText} onChange={(e) => setTagsText(e.target.value)} />
+        <label htmlFor="share" className="label">Share with <span className="label-hint">who sees it on their list</span></label>
+        <ShareSelect id="share" value={sharedWith} onChange={setSharedWith} groups={groups} />
         {!tmdbConfigured && <p className="muted small">Movie search isn't set up yet, so movies are added by title only.</p>}
         {error && <p className="error">{error}</p>}
         <ul className="results" aria-busy={searching}>

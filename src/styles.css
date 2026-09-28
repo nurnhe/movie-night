@@ -126,6 +126,10 @@ input[type=text], input[type=search], input[type=email], input[type=password], s
 .meta input.tag-input { width: 11em; padding: 1px 7px; font-size: 12px; border-radius: 6px; }
 .pill { background: var(--surface-2); border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .pill.good { background: var(--good-soft); color: var(--good); }
+.pill.share { background: var(--accent-soft); color: var(--ink); }
+.actions select.share-select { width: auto; padding: 6px 8px; font-size: 13px; }
+.share-row { display: flex; align-items: center; gap: 10px; }
+.share-row select { width: auto; }
 .note { font-size: 13px; margin: 6px 0 0; overflow-wrap: anywhere; }
 .ratings { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 6px; }
 .stars { display: inline-flex; }

@@ -38,10 +38,11 @@ export function FiltersBar({ filters, onChange, tags, groups, onNewGroup, onEdit
           <label htmlFor="f-scope" className="label">Show</label>
           <select id="f-scope" value={filters.scope}
             onChange={(e) => (e.target.value === NEW_GROUP ? onNewGroup() : set({ scope: e.target.value }))}>
-            <option value="">Everyone's movies</option>
-            <option value="mine">My movies</option>
+            <option value="">Everything</option>
+            <option value="all">Shared with everyone</option>
+            <option value="me">Only me</option>
             {groups.length > 0 && (
-              <optgroup label="Added by a group">
+              <optgroup label="Shared with a group">
                 {groups.map((g) => <option key={g.id} value={`group:${g.id}`}>{g.name}</option>)}
               </optgroup>
             )}

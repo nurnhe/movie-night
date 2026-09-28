@@ -7,8 +7,11 @@ const strArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x i
 
 // A movie can be written by hand via REST, so nothing here can be assumed to exist or have the right type.
 // Every field gets a safe default rather than letting a malformed doc crash rendering, sorting or filtering.
-export function normalizeMovie(id: string, data: Record<string, unknown>): Movie {
+export function normalizeMovie(id: string, data: Record<string, unknown>, source: "movies" | "restricted"): Movie {
+  const groupId = str(data.group_id);
   return {
+    shared_with: source === "movies" ? "all" : groupId ? `group:${groupId}` : "me",
+    owner: source === "movies" ? null : str(data.owner),
     id,
     tmdb_id: num(data.tmdb_id),
     imdb_id: str(data.imdb_id),

@@ -17,9 +17,11 @@ export interface Movie {
   watched: boolean;
   watched_at: string | null;
   created_at: string;
+  shared_with: string; // "all", "me" (only the owner), or "group:<id>"
+  owner: string | null; // lowercase email; set on movies not shared with everyone
 }
 
-export type NewMovie = Omit<Movie, "id" | "watched" | "watched_at" | "created_at" | "ratings">;
+export type NewMovie = Omit<Movie, "id" | "watched" | "watched_at" | "created_at" | "ratings" | "shared_with" | "owner">;
 
 export interface Group {
   id: string;

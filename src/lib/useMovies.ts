@@ -1,42 +1,56 @@
-import { useEffect, useState } from "react";
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, FieldPath, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
+import { useEffect, useMemo, useState } from "react";
+import {
+  addDoc, arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, FieldPath, onSnapshot, orderBy, query,
+  updateDoc, where, writeBatch, type Query,
+} from "firebase/firestore";
 import { db } from "./firebase";
 import { firestoreMessage } from "./firestoreErrors";
 import { normalizeMovie } from "./movies";
+import { collectionFor, groupIdOf, mergeMovieLists, storedFields } from "./sharing";
 import type { Movie, NewMovie } from "./types";
 
-const moviesRef = collection(db, "movies");
 const RETRY_MS = 4000;
 
-export function useMovies(enabled: boolean) {
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [loading, setLoading] = useState(true);
+const refOf = (m: Pick<Movie, "id" | "shared_with">) => doc(db, collectionFor(m.shared_with), m.id);
+
+interface Feed { movies: Movie[]; fromCache: boolean }
+
+export function useMovies(enabled: boolean, me: string, groupIds: string[]) {
+  const [feeds, setFeeds] = useState<Record<string, Feed>>({});
   const [error, setError] = useState<string | null>(null);
-  const [live, setLive] = useState(false);
   const [retryTick, setRetryTick] = useState(0);
+  const groupKey = [...groupIds].sort().join(",");
+  const keys = useMemo(() => ["all", "mine", ...(groupKey ? groupKey.split(",").map((g) => `group:${g}`) : [])], [groupKey]);
 
   useEffect(() => {
     if (!enabled) return;
+    const restricted = collection(db, "restricted");
+    // Rules only allow queries that are limited to what you may see: everyone's movies,
+    // the ones you own, and each of your groups' movies.
+    const feedsToWatch: { key: string; q: Query; source: "movies" | "restricted" }[] = [
+      { key: "all", q: query(collection(db, "movies"), orderBy("created_at", "desc")), source: "movies" },
+      { key: "mine", q: query(restricted, where("owner", "==", me)), source: "restricted" },
+      ...keys.slice(2).map((key) => ({ key, q: query(restricted, where("group_id", "==", groupIdOf(key))), source: "restricted" as const })),
+    ];
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    const unsubscribe = onSnapshot(
-      query(moviesRef, orderBy("created_at", "desc")),
+    const unsubscribes = feedsToWatch.map(({ key, q, source }) => onSnapshot(
+      q,
       { includeMetadataChanges: true },
-      (snap) => {
-        setMovies(snap.docs.map((d) => normalizeMovie(d.id, d.data())));
-        setLive(!snap.metadata.fromCache);
-        setLoading(false);
-      },
+      (snap) => setFeeds((cur) => ({ ...cur, [key]: { movies: snap.docs.map((d) => normalizeMovie(d.id, d.data(), source)), fromCache: snap.metadata.fromCache } })),
       () => {
-        // A subscribe/read failure isn't a write failure, so it doesn't belong in the "didn't save" banner.
-        // The sync dot already shows "Connecting…"; retry quietly so access restored elsewhere (e.g. re-added
-        // to members) recovers the list without needing a reload.
-        setLive(false);
-        setLoading(false);
+        // A read failure isn't a write failure, so it stays out of the "didn't save" banner. The sync dot
+        // shows "Connecting…" and everything resubscribes shortly, so restored access recovers without a reload.
+        setFeeds((cur) => ({ ...cur, [key]: { movies: cur[key]?.movies ?? [], fromCache: true } }));
+        clearTimeout(retryTimer);
         retryTimer = setTimeout(() => setRetryTick((t) => t + 1), RETRY_MS);
       },
-    );
-    return () => { clearTimeout(retryTimer); unsubscribe(); };
-  }, [enabled, retryTick]);
+    ));
+    return () => { clearTimeout(retryTimer); unsubscribes.forEach((u) => u()); };
+  }, [enabled, me, keys, retryTick]);
+
+  const movies = useMemo(() => mergeMovieLists(keys.map((k) => feeds[k]?.movies ?? [])), [feeds, keys]);
+  const loading = !keys.every((k) => feeds[k]);
+  const live = keys.every((k) => feeds[k] && !feeds[k].fromCache);
 
   const run = async (p: Promise<unknown>) => {
     try { await p; setError(null); }
@@ -47,22 +61,39 @@ export function useMovies(enabled: boolean) {
     }
   };
 
-  const add = (movie: NewMovie) =>
-    run(addDoc(moviesRef, { ...movie, watched: false, watched_at: null, created_at: new Date().toISOString() }));
+  const add = (movie: NewMovie, sharedWith: string) => {
+    const fields = { ...movie, watched: false, watched_at: null, created_at: new Date().toISOString() };
+    return sharedWith === "all"
+      ? run(addDoc(collection(db, "movies"), fields))
+      : run(addDoc(collection(db, "restricted"), { ...fields, owner: me, group_id: groupIdOf(sharedWith) }));
+  };
 
-  const update = (id: string, patch: Partial<Omit<Movie, "id">>) => run(updateDoc(doc(moviesRef, id), patch));
+  const update = (m: Movie, patch: Partial<Omit<Movie, "id" | "shared_with" | "owner">>) => run(updateDoc(refOf(m), patch));
 
   const setWatched = (m: Movie, watched: boolean) =>
-    update(m.id, { watched, watched_at: watched ? new Date().toISOString() : null });
+    update(m, { watched, watched_at: watched ? new Date().toISOString() : null });
 
-  const remove = (id: string) => run(deleteDoc(doc(moviesRef, id)));
+  const remove = (m: Movie) => run(deleteDoc(refOf(m)));
 
-  const addTag = (id: string, tag: string) => run(updateDoc(doc(moviesRef, id), { tags: arrayUnion(tag) }));
-  const removeTag = (id: string, tag: string) => run(updateDoc(doc(moviesRef, id), { tags: arrayRemove(tag) }));
+  const addTag = (m: Movie, tag: string) => run(updateDoc(refOf(m), { tags: arrayUnion(tag) }));
+  const removeTag = (m: Movie, tag: string) => run(updateDoc(refOf(m), { tags: arrayRemove(tag) }));
 
   // Emails contain dots, so the rating's key has to be a FieldPath rather than "ratings.<email>".
-  const rate = (id: string, email: string, stars: number | null) =>
-    run(updateDoc(doc(moviesRef, id), new FieldPath("ratings", email), stars ?? deleteField()));
+  const rate = (m: Movie, stars: number | null) =>
+    run(updateDoc(refOf(m), new FieldPath("ratings", me), stars ?? deleteField()));
 
-  return { movies, loading, error, live, add, update, setWatched, remove, addTag, removeTag, rate, clearError: () => setError(null) };
+  // Between private and a group it's one field; to or from "everyone" the movie moves collections,
+  // keeping its id, ratings and tags.
+  const share = (m: Movie, sharedWith: string) => {
+    if (sharedWith === m.shared_with) return Promise.resolve();
+    if (collectionFor(m.shared_with) === "restricted" && collectionFor(sharedWith) === "restricted") {
+      return run(updateDoc(refOf(m), { group_id: groupIdOf(sharedWith) }));
+    }
+    const batch = writeBatch(db);
+    batch.delete(refOf(m));
+    batch.set(doc(db, collectionFor(sharedWith), m.id), storedFields(m, sharedWith, me));
+    return run(batch.commit());
+  };
+
+  return { movies, loading, error, live, add, update, setWatched, remove, addTag, removeTag, rate, share, clearError: () => setError(null) };
 }

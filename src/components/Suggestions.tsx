@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { pickSources, rankSuggestions, type Suggestion } from "../lib/ratings";
 import { movieDetails, posterUrl, recommendations, tmdbConfigured } from "../lib/tmdb";
-import type { Movie, NewMovie } from "../lib/types";
+import type { Group, Movie, NewMovie } from "../lib/types";
+import { ShareSelect } from "./ShareSelect";
 
 interface Props {
   movies: Movie[];
   me: string;
   userEmail: string;
-  onAdd: (m: NewMovie) => Promise<void>;
+  groups: Group[];
+  defaultShare: string;
+  onAdd: (m: NewMovie, sharedWith: string) => Promise<void>;
   onClose: () => void;
 }
 
@@ -17,12 +20,13 @@ type State =
   | { kind: "error"; message: string }
   | { kind: "ready"; items: Suggestion[] };
 
-export function Suggestions({ movies, me, userEmail, onAdd, onClose }: Props) {
+export function Suggestions({ movies, me, userEmail, groups, defaultShare, onAdd, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [state, setState] = useState<State>(() => (tmdbConfigured ? { kind: "loading" } : { kind: "error", message: "Movie search isn't set up, so there's nothing to suggest from." }));
   const [added, setAdded] = useState<Set<number>>(new Set());
   const [busyId, setBusyId] = useState<number | null>(null);
   const [addError, setAddError] = useState("");
+  const [sharedWith, setSharedWith] = useState(defaultShare);
   // Snapshot of the list when the dialog opened, so adding a suggestion doesn't reshuffle the others.
   const snapshot = useRef(movies);
 
@@ -51,7 +55,7 @@ export function Suggestions({ movies, me, userEmail, onAdd, onClose }: Props) {
     setAddError("");
     try {
       const details = await movieDetails(s.id);
-      await onAdd({ ...details, note: `Suggested because you liked ${s.because[0]}`, added_by: userEmail, tags: [] });
+      await onAdd({ ...details, note: `Suggested because you liked ${s.because[0]}`, added_by: userEmail, tags: [] }, sharedWith);
       setAdded((cur) => new Set(cur).add(s.id));
     } catch (e) {
       setAddError(e instanceof Error ? e.message : "Couldn't add that movie.");
@@ -72,6 +76,10 @@ export function Suggestions({ movies, me, userEmail, onAdd, onClose }: Props) {
         {state.kind === "ready" && (state.items.length ? (
           <>
             <p className="muted small">Based on your ratings, using TMDB's recommendations. Movies already on the list are left out.</p>
+            <div className="share-row">
+              <label htmlFor="suggest-share" className="label">Add them for</label>
+              <ShareSelect id="suggest-share" value={sharedWith} onChange={setSharedWith} groups={groups} />
+            </div>
             <ul className="results">
               {state.items.map((s) => (
                 <li key={s.id}>

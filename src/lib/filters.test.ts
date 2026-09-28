@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { allTags, formatRuntime, matchesFilters, emptyFilters, normalizeTag, parseTags, pickRandom, scopeAdders, sortMovies } from "./filters";
+import { allTags, formatRuntime, matchesFilters, emptyFilters, normalizeTag, parseTags, pickRandom, sortMovies } from "./filters";
 import type { Movie } from "./types";
 
 const base: Movie = {
   id: "1", tmdb_id: 1, imdb_id: null, title: "Paddington 2", year: 2017, runtime: 104, genres: ["Comedy", "Family"], tags: ["cozy"], ratings: {},
   rating: 7.6, vote_count: 3000, poster_path: null, overview: null, note: "cozy", added_by: "a@x.com",
-  watched: false, watched_at: null, created_at: "2026-09-01T00:00:00Z",
+  watched: false, watched_at: null, created_at: "2026-09-01T00:00:00Z", shared_with: "all", owner: null,
 };
 const long: Movie = { ...base, id: "2", title: "Oppenheimer", runtime: 180, genres: ["Drama", "History"], tags: [], rating: 8.1, added_by: "b@x.com", note: null, created_at: "2026-09-02T00:00:00Z" };
 const bare: Movie = { ...base, id: "3", title: "Mystery pick", runtime: null, genres: [], tags: [], rating: null, created_at: "2026-09-03T00:00:00Z" };
@@ -34,20 +34,14 @@ describe("matchesFilters", () => {
     expect(matchesFilters(long, { ...emptyFilters, minRating: 8 })).toBe(true);
     expect(matchesFilters(base, { ...emptyFilters, search: "COZY" })).toBe(true);
   });
-  it("keeps only movies added by the given people, ignoring email case", () => {
-    expect(matchesFilters(base, emptyFilters, ["b@x.com"])).toBe(false);
-    expect(matchesFilters(long, emptyFilters, ["b@x.com"])).toBe(true);
-    expect(matchesFilters({ ...base, added_by: "A@X.com" }, emptyFilters, ["a@x.com"])).toBe(true);
-    expect(matchesFilters({ ...base, added_by: null }, emptyFilters, ["a@x.com"])).toBe(false);
+  it("filters by who a movie is shared with", () => {
+    const priv = { ...base, id: "p", shared_with: "me", owner: "a@x.com" };
+    const grp = { ...base, id: "g", shared_with: "group:g1", owner: "a@x.com" };
+    expect([base, priv, grp].filter((m) => matchesFilters(m, { ...emptyFilters, scope: "all" })).map((m) => m.id)).toEqual(["1"]);
+    expect([base, priv, grp].filter((m) => matchesFilters(m, { ...emptyFilters, scope: "me" })).map((m) => m.id)).toEqual(["p"]);
+    expect([base, priv, grp].filter((m) => matchesFilters(m, { ...emptyFilters, scope: "group:g1" })).map((m) => m.id)).toEqual(["g"]);
+    expect([base, priv, grp].every((m) => matchesFilters(m, emptyFilters))).toBe(true);
   });
-});
-
-describe("scopeAdders", () => {
-  const groups = [{ id: "g1", members: ["a@x.com", "b@x.com"] }];
-  it("means everyone when empty", () => expect(scopeAdders("", "a@x.com", groups)).toBeNull());
-  it("means just me for 'mine'", () => expect(scopeAdders("mine", "a@x.com", groups)).toEqual(["a@x.com"]));
-  it("means the group's members for a group", () => expect(scopeAdders("group:g1", "a@x.com", groups)).toEqual(["a@x.com", "b@x.com"]));
-  it("falls back to everyone for a group that no longer exists", () => expect(scopeAdders("group:gone", "a@x.com", groups)).toBeNull());
 });
 
 describe("pickRandom", () => {

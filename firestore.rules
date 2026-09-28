@@ -21,6 +21,32 @@ service cloud.firestore {
       return !(me() in ratings) || (ratings[me()] is int && ratings[me()] >= 1 && ratings[me()] <= 5);
     }
 
+    function inGroup(groupId) {
+      return me() in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
+    }
+
+    // New ratings may only be your own, except when a movie moves between /movies and /restricted,
+    // where the existing ratings must come across unchanged.
+    function ratingsOk(id) {
+      let r = request.resource.data.get('ratings', {});
+      return validOwnRating(r) && (
+        r.keys().hasOnly([me()])
+        || (exists(/databases/$(database)/documents/movies/$(id))
+            && r == get(/databases/$(database)/documents/movies/$(id)).data.get('ratings', {}))
+        || (exists(/databases/$(database)/documents/restricted/$(id))
+            && r == get(/databases/$(database)/documents/restricted/$(id)).data.get('ratings', {}))
+      );
+    }
+
+    // Private movies (no group_id) are visible to their owner; group movies to that group's members.
+    function canSeeRestricted(d) {
+      return d.owner == me() || (d.get('group_id', null) is string && inGroup(d.group_id));
+    }
+
+    function validAudience(d) {
+      return d.owner == me() && (d.get('group_id', null) == null || (d.group_id is string && inGroup(d.group_id)));
+    }
+
     function validGroup(g) {
       return g.keys().hasOnly(['name', 'members', 'created_by', 'created_at'])
         && g.name is string && g.name.size() > 0 && g.name.size() <= 60
@@ -54,13 +80,24 @@ service cloud.firestore {
       allow list: if isMember();
     }
 
-    // Ratings are keyed by email; each person may only set, change or clear their own.
+    // Movies shared with everyone. Ratings are keyed by email; each person may only set,
+    // change or clear their own.
     match /movies/{movieId} {
       allow read, delete: if isMember();
-      allow create: if isMember()
-        && request.resource.data.get('ratings', {}).keys().hasOnly([me()])
-        && validOwnRating(request.resource.data.get('ratings', {}));
+      allow create: if isMember() && ratingsOk(movieId);
       allow update: if isMember()
+        && request.resource.data.get('ratings', {}).diff(resource.data.get('ratings', {})).affectedKeys().hasOnly([me()])
+        && validOwnRating(request.resource.data.get('ratings', {}));
+    }
+
+    // Movies shared with only their owner, or with one group. Only the owner can change who sees it.
+    match /restricted/{movieId} {
+      allow read, delete: if isMember() && canSeeRestricted(resource.data);
+      allow create: if isMember() && validAudience(request.resource.data) && ratingsOk(movieId);
+      allow update: if isMember() && canSeeRestricted(resource.data)
+        && request.resource.data.owner == resource.data.owner
+        && (request.resource.data.get('group_id', null) == resource.data.get('group_id', null)
+            || validAudience(request.resource.data))
         && request.resource.data.get('ratings', {}).diff(resource.data.get('ratings', {})).affectedKeys().hasOnly([me()])
         && validOwnRating(request.resource.data.get('ratings', {}));
     }

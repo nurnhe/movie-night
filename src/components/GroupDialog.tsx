@@ -116,7 +116,7 @@ export function GroupDialog({ group, me, knownEmails, onCreated, onClose }: Prop
         <input id="group-name" type="text" autoFocus={!group} maxLength={MAX_GROUP_NAME} placeholder="e.g. Me and Sam"
           value={name} onChange={(e) => setName(e.target.value)} />
 
-        <span className="label">People <span className="label-hint">the group filter shows movies any of them added</span></span>
+        <span className="label">People <span className="label-hint">they see movies shared with this group</span></span>
         <ul className="people">
           <li><span>{labelFor(me)}</span><span className="pill">You</span></li>
           {others.map((p) => (
@@ -151,12 +151,12 @@ export function GroupDialog({ group, me, knownEmails, onCreated, onClose }: Prop
         <div className="dialog-actions">
           {group && (solo ? (
             <button type="button" className="btn ghost danger" disabled={busy}
-              onClick={() => act(`Delete the group "${group.name}"? Movies stay on the list.`, () => deleteGroup(group.id))}>
+              onClick={() => act(`Delete the group "${group.name}"? Movies shared only with it stay visible to whoever added them.`, () => deleteGroup(group.id))}>
               Delete group
             </button>
           ) : (
             <button type="button" className="btn ghost danger" disabled={busy}
-              onClick={() => act(`Leave "${group.name}"? It will disappear from your filters. Movies stay on the list.`, () => updateGroup(group.id, { removed: [me] }))}>
+              onClick={() => act(`Leave "${group.name}"? You'll stop seeing movies shared only with it.`, () => updateGroup(group.id, { removed: [me] }))}>
               Leave group
             </button>
           ))}
