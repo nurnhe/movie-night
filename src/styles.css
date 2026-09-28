@@ -128,11 +128,13 @@ input[type=text], input[type=search], input[type=email], input[type=password], s
 .note { font-size: 13px; margin: 6px 0 0; overflow-wrap: anywhere; }
 .ratings { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 6px; }
 .stars { display: inline-flex; }
-.star { border: 0; background: none; padding: 0 2px; font-size: 20px; line-height: 1; color: var(--line); }
+.star { border: 0; background: none; padding: 0 2px; font-size: 20px; line-height: 1; color: color-mix(in srgb, var(--muted) 45%, transparent); }
 .star.on { color: var(--gold); }
 .stars:hover .star { color: var(--gold); }
-.stars .star:hover ~ .star { color: var(--line); }
-.rate-prompt { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.stars .star:hover ~ .star { color: color-mix(in srgb, var(--muted) 45%, transparent); }
+/* Pinned to the bottom so it's seen even when "Mark watched" was clicked far down the list. */
+.rate-prompt { position: fixed; z-index: 10; left: 50%; bottom: 16px; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--surface); border: 1px solid var(--accent); box-shadow: var(--shadow); }
 .links { display: flex; gap: 12px; font-size: 13px; margin-top: 6px; font-weight: 600; }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .actions .btn { padding: 7px 11px; font-size: 13px; }
