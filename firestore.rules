@@ -13,6 +13,14 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.email_verified == true;
     }
 
+    function isMember() {
+      return verified() && exists(/databases/$(database)/documents/members/$(me()));
+    }
+
+    function validOwnRating(ratings) {
+      return !(me() in ratings) || (ratings[me()] is int && ratings[me()] >= 1 && ratings[me()] <= 5);
+    }
+
     function validGroup(g) {
       return g.keys().hasOnly(['name', 'members', 'created_by', 'created_at'])
         && g.name is string && g.name.size() > 0 && g.name.size() <= 60
@@ -43,10 +51,18 @@ service cloud.firestore {
     // (to pick people for groups). Members are managed in the console only.
     match /members/{email} {
       allow get: if request.auth != null && me() == email;
-      allow list: if verified() && exists(/databases/$(database)/documents/members/$(me()));
+      allow list: if isMember();
     }
+
+    // Ratings are keyed by email; each person may only set, change or clear their own.
     match /movies/{movieId} {
-      allow read, write: if verified() && exists(/databases/$(database)/documents/members/$(me()));
+      allow read, delete: if isMember();
+      allow create: if isMember()
+        && request.resource.data.get('ratings', {}).keys().hasOnly([me()])
+        && validOwnRating(request.resource.data.get('ratings', {}));
+      allow update: if isMember()
+        && request.resource.data.get('ratings', {}).diff(resource.data.get('ratings', {})).affectedKeys().hasOnly([me()])
+        && validOwnRating(request.resource.data.get('ratings', {}));
     }
   }
 }
