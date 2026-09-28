@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
-import { supabase, supabaseConfigured } from "./lib/supabase";
+import { isSignInWithEmailLink, onAuthStateChanged, signInWithEmailLink, signOut as firebaseSignOut, type User } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db, firebaseConfigured, SIGNIN_EMAIL_KEY } from "./lib/firebase";
 import { useMovies } from "./lib/useMovies";
 import { emptyFilters, matchesFilters, pickRandom, sortMovies, type Filters, type SortKey } from "./lib/filters";
 import { SignIn } from "./components/SignIn";
@@ -10,25 +11,38 @@ import { MovieCard } from "./components/MovieCard";
 import { PickPanel } from "./components/PickPanel";
 
 export default function App() {
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [linkError, setLinkError] = useState("");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => data.subscription.unsubscribe();
+    if (!firebaseConfigured) return;
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    const href = window.location.href;
+    if (isSignInWithEmailLink(auth, href)) {
+      let email: string | null = null;
+      try { email = localStorage.getItem(SIGNIN_EMAIL_KEY); } catch { /* storage unavailable */ }
+      email ??= window.prompt("Confirm the email you used to sign in");
+      window.history.replaceState(null, "", window.location.pathname);
+      if (email) {
+        signInWithEmailLink(auth, email.trim(), href)
+          .then(() => { try { localStorage.removeItem(SIGNIN_EMAIL_KEY); } catch { /* storage unavailable */ } })
+          .catch((e) => setLinkError(e instanceof Error ? e.message : "That sign-in link didn't work. Send a new one."));
+      }
+    }
+    return unsubscribe;
   }, []);
 
-  if (!supabaseConfigured) return <Setup />;
-  if (session === undefined) return null;
-  if (!session) return <SignIn />;
-  return <Queue email={session.user.email ?? ""} />;
+  if (!firebaseConfigured) return <Setup />;
+  if (user === undefined) return null;
+  if (!user) return <SignIn key={linkError} initialError={linkError} />;
+  return <Queue email={user.email ?? ""} />;
 }
 
 function Setup() {
   return (
     <main className="signin">
       <h1 className="brand">Movie Night <span>Queue</span></h1>
-      <p className="lede">This copy of the app isn't connected to a database yet. Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> as described in the README, then rebuild.</p>
+      <p className="lede">This copy of the app isn't connected to a database yet. Add the <code>VITE_FIREBASE_*</code> settings as described in the README, then rebuild.</p>
     </main>
   );
 }
@@ -47,8 +61,9 @@ function Queue({ email }: { email: string }) {
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    supabase.from("members").select("email").then(({ data, error }) => setMember(!error && (data?.length ?? 0) > 0));
-  }, []);
+    if (!email) { setMember(false); return; }
+    getDoc(doc(db, "members", email.toLowerCase())).then((snap) => setMember(snap.exists()), () => setMember(false));
+  }, [email]);
   useEffect(() => { try { localStorage.setItem("mnq-filters", JSON.stringify(filters)); } catch { /* storage unavailable */ } }, [filters]);
 
   const genres = useMemo(() => [...new Set(movies.flatMap((m) => m.genres))].sort(), [movies]);
@@ -59,14 +74,14 @@ function Queue({ email }: { email: string }) {
   const shown = sortMovies((tab === "todo" ? todo : done).filter((m) => matchesFilters(m, filters)), sort);
   const pick = movies.find((m) => m.id === pickId && !m.watched) ?? null;
 
-  const signOut = () => supabase.auth.signOut();
+  const signOut = () => firebaseSignOut(auth);
   const safe = (p: Promise<unknown>) => p.catch(() => { /* surfaced through error */ });
 
   if (member === false) {
     return (
       <main className="signin">
         <h1 className="brand">Movie Night <span>Queue</span></h1>
-        <p className="lede">You're signed in as <strong>{email}</strong>, but this email isn't on the list of people who share it. Ask the owner to add it in Supabase.</p>
+        <p className="lede">You're signed in as <strong>{email}</strong>, but this email isn't on the list of people who share it. Ask the owner to add it to the members collection in Firebase.</p>
         <button className="btn" onClick={signOut}>Sign out</button>
       </main>
     );

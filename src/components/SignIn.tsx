@@ -1,20 +1,27 @@
 import { useState, type FormEvent } from "react";
-import { supabase } from "../lib/supabase";
+import { sendSignInLinkToEmail } from "firebase/auth";
+import { auth, SIGNIN_EMAIL_KEY } from "../lib/firebase";
 
-export function SignIn() {
+export function SignIn({ initialError = "" }: { initialError?: string }) {
   const [email, setEmail] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
-  const [message, setMessage] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(initialError ? "error" : "idle");
+  const [message, setMessage] = useState(initialError);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setState("sending");
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: window.location.origin + window.location.pathname },
-    });
-    if (error) { setState("error"); setMessage(error.message); }
-    else setState("sent");
+    const address = email.trim();
+    try {
+      await sendSignInLinkToEmail(auth, address, {
+        url: window.location.origin + window.location.pathname,
+        handleCodeInApp: true,
+      });
+      try { localStorage.setItem(SIGNIN_EMAIL_KEY, address); } catch { /* asked again when the link opens */ }
+      setState("sent");
+    } catch (err) {
+      setState("error");
+      setMessage(err instanceof Error ? err.message : "Couldn't send the sign-in link.");
+    }
   }
 
   return (
