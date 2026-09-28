@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createGroup, deleteGroup, loadMemberDirectory, updateGroup } from "../lib/groups";
+import { firestoreMessage } from "../lib/firestoreErrors";
 import { MAX_GROUP_NAME, MAX_MEMBERS, mergePeople, normalizeEmail, personLabel } from "../lib/groupLogic";
 import type { Group, Person } from "../lib/types";
 
@@ -11,7 +12,7 @@ interface Props {
   onClose: () => void;
 }
 
-const errorText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong. Try again.");
+const errorText = firestoreMessage;
 
 const directoryErrorText = (e: unknown) =>
   typeof e === "object" && e && "code" in e && e.code === "permission-denied"
