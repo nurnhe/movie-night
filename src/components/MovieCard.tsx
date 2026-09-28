@@ -34,7 +34,7 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete }: Props)
       <div className="actions">
         {confirming ? (
           <>
-            <button className="btn danger" onClick={onDelete}>Delete for both</button>
+            <button className="btn danger" onClick={onDelete}>Delete for everyone</button>
             <button className="btn" onClick={() => setConfirming(false)}>Keep</button>
           </>
         ) : (

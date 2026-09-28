@@ -48,7 +48,7 @@ export function FiltersBar({ filters, onChange, genres, people }: Props) {
           <div className="field">
             <label htmlFor="f-by" className="label">Added by</label>
             <select id="f-by" value={filters.addedBy} onChange={(e) => set({ addedBy: e.target.value })}>
-              <option value="">Either of us</option>
+              <option value="">Anyone</option>
               {people.map((p) => <option key={p} value={p}>{p.split("@")[0]}</option>)}
             </select>
           </div>

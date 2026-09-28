@@ -18,3 +18,11 @@ export interface Movie {
 }
 
 export type NewMovie = Omit<Movie, "id" | "watched" | "watched_at" | "created_at">;
+
+export interface Group {
+  id: string;
+  name: string;
+  members: string[]; // lowercase emails
+  created_by: string;
+  created_at: string;
+}

@@ -1,26 +1,49 @@
 rules_version = '2';
 
 // Paste this into Firebase console > Firestore Database > Rules, then Publish.
-// Only people with a document in /members (document ID = their email, lowercase) can read or change the list.
+// Each group's list is visible only to the emails in that group's `members`.
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedInEmail() {
+    function me() {
       return request.auth.token.email.lower();
     }
 
-    function isMember() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && exists(/databases/$(database)/documents/members/$(signedInEmail()));
+    function verified() {
+      return request.auth != null && request.auth.token.email_verified == true;
     }
 
-    // Each person may check their own membership; members are managed in the console only.
+    function validGroup(g) {
+      return g.keys().hasOnly(['name', 'members', 'created_by', 'created_at'])
+        && g.name is string && g.name.size() > 0 && g.name.size() <= 60
+        && g.members is list && g.members.size() > 0 && g.members.size() <= 20;
+    }
+
+    match /groups/{groupId} {
+      allow read: if verified() && me() in resource.data.members;
+      allow create: if verified()
+        && validGroup(request.resource.data)
+        && me() in request.resource.data.members
+        && request.resource.data.created_by == me();
+      // Any member can rename the group, add or remove people, or leave.
+      allow update: if verified()
+        && me() in resource.data.members
+        && validGroup(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'members']);
+      allow delete: if verified() && me() in resource.data.members;
+
+      match /movies/{movieId} {
+        allow read, write: if verified()
+          && me() in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
+      }
+    }
+
+    // The original single shared list from before groups. Still editable so a pre-groups build of the
+    // site keeps working, and readable so its members can copy it into a group.
     match /members/{email} {
-      allow get: if request.auth != null && signedInEmail() == email;
+      allow get: if request.auth != null && me() == email;
     }
-
     match /movies/{movieId} {
-      allow read, write: if isMember();
+      allow read, write: if verified() && exists(/databases/$(database)/documents/members/$(me()));
     }
   }
 }

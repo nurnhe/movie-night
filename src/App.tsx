@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { isSignInWithEmailLink, onAuthStateChanged, sendEmailVerification, signInWithEmailLink, signOut as firebaseSignOut, type User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db, firebaseConfigured, SIGNIN_EMAIL_KEY } from "./lib/firebase";
+import { auth, firebaseConfigured, SIGNIN_EMAIL_KEY } from "./lib/firebase";
 import { authMessage } from "./lib/authErrors";
+import { useGroups, useOriginalList } from "./lib/groups";
+import type { Group } from "./lib/types";
 import { useMovies } from "./lib/useMovies";
 import { emptyFilters, matchesFilters, pickRandom, sortMovies, type Filters, type SortKey } from "./lib/filters";
 import { SignIn } from "./components/SignIn";
 import { AddMovie } from "./components/AddMovie";
+import { GroupDialog } from "./components/GroupDialog";
 import { FiltersBar } from "./components/FiltersBar";
 import { MovieCard } from "./components/MovieCard";
 import { PickPanel } from "./components/PickPanel";
@@ -98,24 +100,89 @@ function Setup() {
   );
 }
 
-function loadFilters(): Filters {
-  try { return { ...emptyFilters, ...JSON.parse(localStorage.getItem("mnq-filters") ?? "{}") }; } catch { return emptyFilters; }
+const GROUP_KEY = "mnq-group";
+const NEW_GROUP = "__new";
+
+function loadFilters(groupId: string): Filters {
+  try { return { ...emptyFilters, ...JSON.parse(localStorage.getItem(`mnq-filters-${groupId}`) ?? "{}") }; } catch { return emptyFilters; }
 }
 
+type DialogState = { kind: "create" } | { kind: "edit"; group: Group } | null;
+
 function Queue({ email }: { email: string }) {
-  const [member, setMember] = useState<boolean | null>(null);
-  const { movies, loading, error, live, add, setWatched, remove, clearError } = useMovies(member === true);
-  const [filters, setFilters] = useState<Filters>(loadFilters);
+  const me = email.toLowerCase();
+  const { groups, error } = useGroups(me);
+  const originalList = useOriginalList(me);
+  const [selectedId, setSelectedId] = useState<string | null>(() => { try { return localStorage.getItem(GROUP_KEY); } catch { return null; } });
+  const [dialog, setDialog] = useState<DialogState>(null);
+  const group = groups?.find((g) => g.id === selectedId) ?? groups?.[0] ?? null;
+
+  const select = (id: string) => {
+    setSelectedId(id);
+    try { localStorage.setItem(GROUP_KEY, id); } catch { /* storage unavailable */ }
+  };
+  const signOut = () => firebaseSignOut(auth);
+
+  let content;
+  if (error) {
+    content = (
+      <main className="signin">
+        <h1 className="brand">Movie Night <span>Queue</span></h1>
+        <p className="error">Couldn't load your groups: {error}</p>
+        <button className="btn" onClick={() => window.location.reload()}>Try again</button>
+        <p className="muted small"><button className="linklike" onClick={signOut}>Sign out</button></p>
+      </main>
+    );
+  } else if (!groups) {
+    content = <main className="signin"><h1 className="brand">Movie Night <span>Queue</span></h1><p className="muted">Loading your groups…</p></main>;
+  } else if (!group) {
+    content = (
+      <main className="signin">
+        <h1 className="brand">Movie Night <span>Queue</span></h1>
+        <p className="lede">You're not in a group yet. Create one and add the people you watch with. Each group has its own list.</p>
+        <button className="btn primary" onClick={() => setDialog({ kind: "create" })}>Create a group</button>
+        <p className="muted small">If someone adds <strong>{email}</strong> to their group, it shows up here right away.</p>
+        <p className="muted small"><button className="linklike" onClick={signOut}>Sign out</button></p>
+      </main>
+    );
+  } else {
+    content = (
+      <GroupList key={group.id} group={group} groups={groups} email={email} onSignOut={signOut}
+        onSelect={select} onNewGroup={() => setDialog({ kind: "create" })} onSettings={() => setDialog({ kind: "edit", group })} />
+    );
+  }
+
+  // The dialog stays the second child so it isn't remounted when the page behind it changes.
+  return (
+    <>
+      {content}
+      {dialog && (
+        <GroupDialog group={dialog.kind === "edit" ? dialog.group : null} me={me} originalList={originalList}
+          firstGroup={!groups?.length} onCreated={select} onClose={() => setDialog(null)} />
+      )}
+    </>
+  );
+}
+
+interface GroupListProps {
+  group: Group;
+  groups: Group[];
+  email: string;
+  onSelect: (id: string) => void;
+  onNewGroup: () => void;
+  onSettings: () => void;
+  onSignOut: () => void;
+}
+
+function GroupList({ group, groups, email, onSelect, onNewGroup, onSettings, onSignOut }: GroupListProps) {
+  const { movies, loading, error, live, add, setWatched, remove, clearError } = useMovies(group.id);
+  const [filters, setFilters] = useState<Filters>(() => loadFilters(group.id));
   const [tab, setTab] = useState<"todo" | "done">("todo");
   const [sort, setSort] = useState<SortKey>("added");
   const [pickId, setPickId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
-  useEffect(() => {
-    if (!email) { setMember(false); return; }
-    getDoc(doc(db, "members", email.toLowerCase())).then((snap) => setMember(snap.exists()), () => setMember(false));
-  }, [email]);
-  useEffect(() => { try { localStorage.setItem("mnq-filters", JSON.stringify(filters)); } catch { /* storage unavailable */ } }, [filters]);
+  useEffect(() => { try { localStorage.setItem(`mnq-filters-${group.id}`, JSON.stringify(filters)); } catch { /* storage unavailable */ } }, [group.id, filters]);
 
   const genres = useMemo(() => [...new Set(movies.flatMap((m) => m.genres))].sort(), [movies]);
   const people = useMemo(() => [...new Set(movies.map((m) => m.added_by).filter((p): p is string => !!p))].sort(), [movies]);
@@ -124,19 +191,9 @@ function Queue({ email }: { email: string }) {
   const done = movies.filter((m) => m.watched);
   const shown = sortMovies((tab === "todo" ? todo : done).filter((m) => matchesFilters(m, filters)), sort);
   const pick = movies.find((m) => m.id === pickId && !m.watched) ?? null;
+  const others = group.members.length - 1;
 
-  const signOut = () => firebaseSignOut(auth);
   const safe = (p: Promise<unknown>) => p.catch(() => { /* surfaced through error */ });
-
-  if (member === false) {
-    return (
-      <main className="signin">
-        <h1 className="brand">Movie Night <span>Queue</span></h1>
-        <p className="lede">You're signed in as <strong>{email}</strong>, but this email isn't on the list of people who share it. Ask the owner to add it to the members collection in Firebase.</p>
-        <button className="btn" onClick={signOut}>Sign out</button>
-      </main>
-    );
-  }
 
   return (
     <div className="wrap">
@@ -144,9 +201,18 @@ function Queue({ email }: { email: string }) {
         <h1 className="brand">Movie Night <span>Queue</span></h1>
         <div className="top-right">
           <span className="sync"><span className={"dot" + (live ? " live" : "")} />{live ? "Synced" : "Connecting…"}</span>
-          <button className="btn ghost small" onClick={signOut}>Sign out</button>
+          <button className="btn ghost small" onClick={onSignOut}>Sign out</button>
         </div>
       </header>
+
+      <div className="groupbar">
+        <select aria-label="Group" value={group.id} onChange={(e) => (e.target.value === NEW_GROUP ? onNewGroup() : onSelect(e.target.value))}>
+          {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          <option value={NEW_GROUP}>+ New group…</option>
+        </select>
+        <span className="muted small">{others ? `You and ${others} other${others === 1 ? "" : "s"}` : "Just you"}</span>
+        <button className="btn ghost small" onClick={onSettings}>Group settings</button>
+      </div>
 
       {error && <div className="banner" role="alert">That didn't save: {error} <button className="linklike" onClick={clearError}>Dismiss</button></div>}
 
@@ -178,7 +244,7 @@ function Queue({ email }: { email: string }) {
         </div>
 
         <div className="list">
-          {loading || member === null ? (
+          {loading ? (
             <p className="muted">Loading your list…</p>
           ) : shown.length ? (
             shown.map((m) => (
@@ -187,8 +253,8 @@ function Queue({ email }: { email: string }) {
             ))
           ) : (
             <div className="empty">
-              <strong>{!movies.length ? "Your list is empty" : tab === "done" && !done.length ? "Nothing watched yet" : "No movies match these filters"}</strong>
-              {!movies.length ? "Add the first movie you both want to see. It shows up for the other person right away."
+              <strong>{!movies.length ? "This list is empty" : tab === "done" && !done.length ? "Nothing watched yet" : "No movies match these filters"}</strong>
+              {!movies.length ? (others ? "Add the first movie you want to see. It shows up for everyone in the group right away." : "Add a movie, or open Group settings to invite people.")
                 : tab === "done" && !done.length ? "Mark a movie as watched and it moves here."
                 : <>Try a longer length or fewer genres. <button className="linklike" onClick={() => setFilters(emptyFilters)}>Clear filters</button></>}
             </div>
