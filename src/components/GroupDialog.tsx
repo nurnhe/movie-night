@@ -1,26 +1,45 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { createGroup, deleteGroup, updateGroup } from "../lib/groups";
-import { MAX_GROUP_NAME, MAX_MEMBERS, personLabel } from "../lib/groupLogic";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { createGroup, deleteGroup, loadMemberDirectory, updateGroup } from "../lib/groups";
+import { MAX_GROUP_NAME, MAX_MEMBERS, mergePeople, normalizeEmail, personLabel } from "../lib/groupLogic";
 import type { Group, Person } from "../lib/types";
 
 interface Props {
   group: Group | null; // null creates a new group
   me: string;
-  people: Person[];
+  knownEmails: (string | null)[]; // people seen on movies or in my groups, for when the member list can't be read
   onCreated: (groupId: string) => void;
   onClose: () => void;
 }
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong. Try again.");
 
-export function GroupDialog({ group, me, people, onCreated, onClose }: Props) {
+const directoryErrorText = (e: unknown) =>
+  typeof e === "object" && e && "code" in e && e.code === "permission-denied"
+    ? "Firebase's rules don't allow it yet: publish the latest firestore.rules."
+    : errorText(e);
+
+export function GroupDialog({ group, me, knownEmails, onCreated, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(group?.name ?? "");
   const [others, setOthers] = useState<string[]>(group ? group.members.filter((e) => e !== me) : []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [directory, setDirectory] = useState<Person[] | null>(null);
+  const [directoryError, setDirectoryError] = useState("");
+  const [typed, setTyped] = useState("");
 
   useEffect(() => { dialog.current?.showModal(); }, []);
+  useEffect(() => {
+    let active = true;
+    loadMemberDirectory().then(
+      (people) => { if (active) setDirectory(people); },
+      (e) => { if (active) setDirectoryError(directoryErrorText(e)); },
+    );
+    return () => { active = false; };
+  }, []);
+
+  const people = useMemo(() => mergePeople(directory ?? [], knownEmails), [directory, knownEmails]);
+  const loadingPeople = directory === null && !directoryError;
 
   const close = () => dialog.current?.close();
 
@@ -31,14 +50,29 @@ export function GroupDialog({ group, me, people, onCreated, onClose }: Props) {
   };
 
   function addPerson(email: string) {
-    if (!email) return;
+    if (!email || email === me || others.includes(email)) return;
     if (others.length + 2 > MAX_MEMBERS) { setError(`A group can have up to ${MAX_MEMBERS} people.`); return; }
     setOthers([...others, email]);
     setError("");
   }
 
+  function withTyped(): string[] | null {
+    if (!typed.trim()) return others;
+    const email = normalizeEmail(typed);
+    if (!email) { setError(`"${typed.trim()}" isn't an email address.`); return null; }
+    if (email === me || others.includes(email)) { setTyped(""); return others; }
+    if (others.length + 2 > MAX_MEMBERS) { setError(`A group can have up to ${MAX_MEMBERS} people.`); return null; }
+    const next = [...others, email];
+    setOthers(next);
+    setTyped("");
+    setError("");
+    return next;
+  }
+
   async function save(e: FormEvent) {
     e.preventDefault();
+    const members = withTyped();
+    if (!members) return;
     const trimmed = name.trim();
     if (!trimmed) { setError("Give the group a name."); return; }
     setBusy(true);
@@ -48,11 +82,11 @@ export function GroupDialog({ group, me, people, onCreated, onClose }: Props) {
         const before = group.members.filter((p) => p !== me);
         await updateGroup(group.id, {
           name: trimmed,
-          added: others.filter((p) => !before.includes(p)),
-          removed: before.filter((p) => !others.includes(p)),
+          added: members.filter((p) => !before.includes(p)),
+          removed: before.filter((p) => !members.includes(p)),
         });
       } else {
-        onCreated(await createGroup(trimmed, others, me));
+        onCreated(await createGroup(trimmed, members, me));
       }
       close();
     } catch (err) {
@@ -90,11 +124,25 @@ export function GroupDialog({ group, me, people, onCreated, onClose }: Props) {
             </li>
           ))}
         </ul>
-        <select aria-label="Add a person" value="" onChange={(e) => addPerson(e.target.value)} disabled={!candidates.length}>
-          <option value="">{candidates.length ? "Add a person…" : "Everyone is already in this group"}</option>
+        <select aria-label="Add a person" value="" onChange={(e) => addPerson(e.target.value)} disabled={loadingPeople || !candidates.length}>
+          <option value="">{loadingPeople ? "Loading people…" : candidates.length ? "Add a person…" : "Everyone is already in this group"}</option>
           {candidates.map((p) => <option key={p.email} value={p.email}>{personLabel(p)}</option>)}
         </select>
-        <p className="muted small">Lists everyone who can use the app. To add someone new, give them access in Firebase first.</p>
+        {directoryError ? (
+          <>
+            <p className="notice small">
+              Couldn't load everyone who can use the app, so this only lists people you share movies or groups with. {directoryError} You can still type an email:
+            </p>
+            <div className="add-person">
+              <input type="text" inputMode="email" autoComplete="off" aria-label="Add a person by email" placeholder="their.email@example.com" value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); withTyped(); } }} />
+              <button type="button" className="btn" onClick={withTyped} disabled={!typed.trim()}>Add</button>
+            </div>
+          </>
+        ) : (
+          <p className="muted small">Lists everyone who can use the app. To add someone new, give them access in Firebase first.</p>
+        )}
 
         {error && <p className="error">{error}</p>}
 

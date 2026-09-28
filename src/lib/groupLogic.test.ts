@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMemberChanges, mergePeople, newMoviesOnly, personLabel } from "./groupLogic";
+import { applyMemberChanges, mergePeople, newMoviesOnly, normalizeEmail, personLabel } from "./groupLogic";
 
 describe("applyMemberChanges", () => {
   it("keeps concurrent additions made by someone else", () => {
@@ -42,5 +42,14 @@ describe("mergePeople", () => {
   it("labels people by name when there is one", () => {
     expect(personLabel({ email: "sam@x.io", name: "Sam" })).toBe("Sam (sam@x.io)");
     expect(personLabel({ email: "alex@x.io", name: "" })).toBe("alex@x.io");
+  });
+});
+
+describe("normalizeEmail", () => {
+  it("trims and lowercases a valid email", () => expect(normalizeEmail("  Fetisov.Yuri@Gmail.com ")).toBe("fetisov.yuri@gmail.com"));
+  it("rejects anything that isn't an email", () => {
+    expect(normalizeEmail("fetisov")).toBeNull();
+    expect(normalizeEmail("a@b")).toBeNull();
+    expect(normalizeEmail("two words@x.io")).toBeNull();
   });
 });

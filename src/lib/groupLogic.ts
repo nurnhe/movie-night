@@ -3,6 +3,11 @@ import type { Movie, Person } from "./types";
 export const MAX_MEMBERS = 20;
 export const MAX_GROUP_NAME = 60;
 
+export function normalizeEmail(text: string): string | null {
+  const email = text.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
+}
+
 export function applyMemberChanges(current: string[], added: string[], removed: string[]): string[] {
   const gone = new Set(removed);
   return [...new Set([...current.filter((e) => !gone.has(e)), ...added])];

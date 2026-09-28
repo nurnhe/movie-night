@@ -3,8 +3,7 @@ import { isSignInWithEmailLink, onAuthStateChanged, sendEmailVerification, signI
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db, firebaseConfigured, SIGNIN_EMAIL_KEY } from "./lib/firebase";
 import { authMessage } from "./lib/authErrors";
-import { moveGroupMoviesToMainList, useGroups, useMemberDirectory } from "./lib/groups";
-import { mergePeople } from "./lib/groupLogic";
+import { moveGroupMoviesToMainList, useGroups } from "./lib/groups";
 import type { Group } from "./lib/types";
 import { useMovies } from "./lib/useMovies";
 import { emptyFilters, matchesFilters, pickRandom, scopeAdders, sortMovies, type Filters, type SortKey } from "./lib/filters";
@@ -114,7 +113,6 @@ function Queue({ email }: { email: string }) {
   const [accessError, setAccessError] = useState("");
   const { movies, loading, error, live, add, setWatched, remove, clearError } = useMovies(access === "member");
   const { groups } = useGroups(me);
-  const directory = useMemberDirectory(access === "member");
   const [filters, setFilters] = useState<Filters>(loadFilters);
   const [tab, setTab] = useState<"todo" | "done">("todo");
   const [sort, setSort] = useState<SortKey>("added");
@@ -138,9 +136,9 @@ function Queue({ email }: { email: string }) {
 
   const scope = filters.scope.startsWith("group:") && !groups.some((g) => `group:${g.id}` === filters.scope) ? "" : filters.scope;
   const adders = useMemo(() => scopeAdders(scope, me, groups), [scope, me, groups]);
-  const people = useMemo(
-    () => mergePeople(directory, [me, ...movies.map((m) => m.added_by), ...groups.flatMap((g) => g.members)]),
-    [directory, me, movies, groups],
+  const knownEmails = useMemo(
+    () => [me, ...movies.map((m) => m.added_by), ...groups.flatMap((g) => g.members)],
+    [me, movies, groups],
   );
   const genres = useMemo(() => [...new Set(movies.flatMap((m) => m.genres))].sort(), [movies]);
   const pool = useMemo(() => movies.filter((m) => !m.watched && matchesFilters(m, filters, adders)), [movies, filters, adders]);
@@ -233,7 +231,7 @@ function Queue({ email }: { email: string }) {
 
       {adding && <AddMovie existing={movies} userEmail={email} onAdd={add} onClose={() => setAdding(false)} />}
       {dialog && (
-        <GroupDialog group={dialog.kind === "edit" ? dialog.group : null} me={me} people={people}
+        <GroupDialog group={dialog.kind === "edit" ? dialog.group : null} me={me} knownEmails={knownEmails}
           onCreated={(id) => setFilters((f) => ({ ...f, scope: `group:${id}` }))} onClose={() => setDialog(null)} />
       )}
     </div>
