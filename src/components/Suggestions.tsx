@@ -61,6 +61,7 @@ export function Suggestions({ movies, me, userEmail, onAdd, onClose }: Props) {
 
   return (
     <dialog ref={dialog} className="dialog" onClose={onClose}>
+      <button type="button" className="dialog-close" aria-label="Close" onClick={() => dialog.current?.close()}>×</button>
       <div className="dialog-body">
         <h2>Suggestions for you</h2>
         {state.kind === "loading" && <p className="muted">Finding movies like the ones you rated highly…</p>}

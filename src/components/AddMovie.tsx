@@ -65,6 +65,7 @@ export function AddMovie({ existing, userEmail, onAdd, onClose }: Props) {
 
   return (
     <dialog ref={dialog} className="dialog" onClose={onClose}>
+      <button type="button" className="dialog-close" aria-label="Close" onClick={() => dialog.current?.close()}>×</button>
       <div className="dialog-body">
         <h2>Add a movie</h2>
         <label htmlFor="search" className="label">Search by title</label>

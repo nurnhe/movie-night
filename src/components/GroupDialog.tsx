@@ -108,6 +108,7 @@ export function GroupDialog({ group, me, knownEmails, onCreated, onClose }: Prop
 
   return (
     <dialog ref={dialog} className="dialog" onClose={onClose}>
+      <button type="button" className="dialog-close" aria-label="Close" onClick={close}>×</button>
       <form className="dialog-body" onSubmit={save}>
         <h2>{group ? "Group settings" : "New group"}</h2>
 
