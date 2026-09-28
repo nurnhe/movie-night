@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// Paste this into Firebase console > Firestore Database > Rules, then Publish.
+// Only people with a document in /members (document ID = their email, lowercase) can read or change the list.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedInEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function isMember() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/members/$(signedInEmail()));
+    }
+
+    // Each person may check their own membership; members are managed in the console only.
+    match /members/{email} {
+      allow get: if request.auth != null && signedInEmail() == email;
+    }
+
+    match /movies/{movieId} {
+      allow read, write: if isMember();
+    }
+  }
+}
