@@ -5,7 +5,8 @@ export interface Movie {
   title: string;
   year: number | null;
   runtime: number | null;
-  genres: string[];
+  genres: string[]; // from TMDB
+  tags: string[];   // added by people, lowercase
   rating: number | null;
   vote_count: number | null;
   poster_path: string | null;

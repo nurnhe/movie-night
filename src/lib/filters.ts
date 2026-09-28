@@ -2,22 +2,38 @@ import type { Movie } from "./types";
 
 export interface Filters {
   search: string;
-  genres: string[];      // match any
+  tags: string[];        // genres or custom tags; match any
   maxRuntime: number | null;
   minRating: number | null;
   scope: string; // "" everyone, "mine", or "group:<id>"
 }
 
-export const emptyFilters: Filters = { search: "", genres: [], maxRuntime: null, minRating: null, scope: "" };
+export const emptyFilters: Filters = { search: "", tags: [], maxRuntime: null, minRating: null, scope: "" };
 
 export function matchesFilters(m: Movie, f: Filters, adders: string[] | null = null): boolean {
   const q = f.search.trim().toLowerCase();
-  if (q && !m.title.toLowerCase().includes(q) && !(m.note ?? "").toLowerCase().includes(q)) return false;
-  if (f.genres.length && !m.genres.some((g) => f.genres.includes(g))) return false;
+  if (q && !m.title.toLowerCase().includes(q) && !(m.note ?? "").toLowerCase().includes(q) && !m.tags.some((t) => t.includes(q))) return false;
+  if (f.tags.length && ![...m.genres, ...m.tags].some((t) => f.tags.includes(t))) return false;
   if (f.maxRuntime != null && (m.runtime == null || m.runtime > f.maxRuntime)) return false;
   if (f.minRating != null && (m.rating == null || m.rating < f.minRating)) return false;
   if (adders && !adders.includes((m.added_by ?? "").toLowerCase())) return false;
   return true;
+}
+
+export const MAX_TAG_LENGTH = 30;
+export const MAX_TAGS = 12;
+
+export function normalizeTag(text: string): string | null {
+  const tag = text.trim().replace(/^#+/, "").replace(/\s+/g, " ").trim().toLowerCase().slice(0, MAX_TAG_LENGTH).trim();
+  return tag || null;
+}
+
+export function parseTags(text: string): string[] {
+  return [...new Set(text.split(",").map(normalizeTag).filter((t): t is string => t !== null))].slice(0, MAX_TAGS);
+}
+
+export function allTags(movies: Pick<Movie, "genres" | "tags">[]): string[] {
+  return [...new Set(movies.flatMap((m) => [...m.genres, ...m.tags]))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
 export function scopeAdders(scope: string, me: string, groups: { id: string; members: string[] }[]): string[] | null {

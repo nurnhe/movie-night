@@ -6,7 +6,7 @@ import { authMessage } from "./lib/authErrors";
 import { moveGroupMoviesToMainList, useGroups } from "./lib/groups";
 import type { Group } from "./lib/types";
 import { useMovies } from "./lib/useMovies";
-import { emptyFilters, matchesFilters, pickRandom, scopeAdders, sortMovies, type Filters, type SortKey } from "./lib/filters";
+import { allTags, emptyFilters, matchesFilters, pickRandom, scopeAdders, sortMovies, type Filters, type SortKey } from "./lib/filters";
 import { SignIn } from "./components/SignIn";
 import { AddMovie } from "./components/AddMovie";
 import { GroupDialog } from "./components/GroupDialog";
@@ -111,7 +111,7 @@ function Queue({ email }: { email: string }) {
   const me = email.toLowerCase();
   const [access, setAccess] = useState<"checking" | "member" | "not-member" | "error">("checking");
   const [accessError, setAccessError] = useState("");
-  const { movies, loading, error, live, add, setWatched, remove, clearError } = useMovies(access === "member");
+  const { movies, loading, error, live, add, setWatched, remove, addTag, removeTag, clearError } = useMovies(access === "member");
   const { groups } = useGroups(me);
   const [filters, setFilters] = useState<Filters>(loadFilters);
   const [tab, setTab] = useState<"todo" | "done">("todo");
@@ -140,7 +140,9 @@ function Queue({ email }: { email: string }) {
     () => [me, ...movies.map((m) => m.added_by), ...groups.flatMap((g) => g.members)],
     [me, movies, groups],
   );
-  const genres = useMemo(() => [...new Set(movies.flatMap((m) => m.genres))].sort(), [movies]);
+  // Keep selected tags visible even if no movie has them any more, so they can be turned off.
+  const tags = useMemo(() => allTags([...movies, { genres: [], tags: filters.tags }]), [movies, filters.tags]);
+  const customTags = useMemo(() => [...new Set(movies.flatMap((m) => m.tags))].sort(), [movies]);
   const pool = useMemo(() => movies.filter((m) => !m.watched && matchesFilters(m, filters, adders)), [movies, filters, adders]);
   const inScope = adders ? movies.filter((m) => matchesFilters(m, emptyFilters, adders)) : movies;
   const todo = inScope.filter((m) => !m.watched);
@@ -187,7 +189,7 @@ function Queue({ email }: { email: string }) {
         onWatched={() => pick && safe(setWatched(pick, true))}
       />
 
-      <FiltersBar filters={{ ...filters, scope }} onChange={setFilters} genres={genres} groups={groups}
+      <FiltersBar filters={{ ...filters, scope }} onChange={setFilters} tags={tags} groups={groups}
         onNewGroup={() => setDialog({ kind: "create" })} onEditGroup={(group) => setDialog({ kind: "edit", group })} />
 
       <section className="list-section">
@@ -214,20 +216,23 @@ function Queue({ email }: { email: string }) {
           ) : shown.length ? (
             shown.map((m) => (
               <MovieCard key={m.id} movie={m} highlighted={m.id === pickId}
-                onWatched={(w) => safe(setWatched(m, w))} onDelete={() => safe(remove(m.id))} />
+                onWatched={(w) => safe(setWatched(m, w))} onDelete={() => safe(remove(m.id))}
+                onAddTag={(t) => safe(addTag(m.id, t))} onRemoveTag={(t) => safe(removeTag(m.id, t))} />
             ))
           ) : (
             <div className="empty">
               <strong>{!movies.length ? "Your list is empty" : tab === "done" && !done.length ? "Nothing watched yet" : "No movies match these filters"}</strong>
               {!movies.length ? "Add the first movie you want to see. It shows up for everyone right away."
                 : tab === "done" && !done.length ? "Mark a movie as watched and it moves here."
-                : <>Try another “Show” option, a longer length or fewer genres. <button className="linklike" onClick={() => setFilters(emptyFilters)}>Clear filters</button></>}
+                : <>Try another “Show” option, a longer length or fewer tags. <button className="linklike" onClick={() => setFilters(emptyFilters)}>Clear filters</button></>}
             </div>
           )}
         </div>
       </section>
 
       <footer className="foot muted small">Movie details and ratings from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</footer>
+
+      <datalist id="tag-suggestions">{customTags.map((t) => <option key={t} value={t} />)}</datalist>
 
       {adding && <AddMovie existing={movies} userEmail={email} onAdd={add} onClose={() => setAdding(false)} />}
       {dialog && (

@@ -42,7 +42,7 @@ export async function searchMovies(query: string, signal?: AbortSignal): Promise
   }));
 }
 
-export async function movieDetails(id: number): Promise<Omit<NewMovie, "note" | "added_by">> {
+export async function movieDetails(id: number): Promise<Omit<NewMovie, "note" | "added_by" | "tags">> {
   const d = await get<{
     id: number; imdb_id: string | null; title: string; release_date?: string; runtime: number | null;
     genres: { name: string }[]; vote_average: number; vote_count: number; poster_path: string | null; overview: string;

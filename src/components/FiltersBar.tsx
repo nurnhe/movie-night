@@ -4,7 +4,7 @@ import type { Group } from "../lib/types";
 interface Props {
   filters: Filters;
   onChange: (f: Filters) => void;
-  genres: string[];
+  tags: string[];
   groups: Group[];
   onNewGroup: () => void;
   onEditGroup: (g: Group) => void;
@@ -25,10 +25,10 @@ const ratings = [
   { v: "8", label: "★ 8+" },
 ];
 
-export function FiltersBar({ filters, onChange, genres, groups, onNewGroup, onEditGroup }: Props) {
+export function FiltersBar({ filters, onChange, tags, groups, onNewGroup, onEditGroup }: Props) {
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
-  const toggleGenre = (g: string) =>
-    set({ genres: filters.genres.includes(g) ? filters.genres.filter((x) => x !== g) : [...filters.genres, g] });
+  const toggleTag = (t: string) =>
+    set({ tags: filters.tags.includes(t) ? filters.tags.filter((x) => x !== t) : [...filters.tags, t] });
   const selectedGroup = groups.find((g) => `group:${g.id}` === filters.scope);
 
   return (
@@ -68,12 +68,12 @@ export function FiltersBar({ filters, onChange, genres, groups, onNewGroup, onEd
           </select>
         </div>
       </div>
-      {genres.length > 0 && (
+      {tags.length > 0 && (
         <div className="field">
-          <span className="label">Genre <span className="label-hint">matches any selected</span></span>
+          <span className="label">Tags <span className="label-hint">genres and your own tags; matches any selected</span></span>
           <div className="chips">
-            {genres.map((g) => (
-              <button key={g} type="button" className="chip" aria-pressed={filters.genres.includes(g)} onClick={() => toggleGenre(g)}>{g}</button>
+            {tags.map((t) => (
+              <button key={t} type="button" className="chip" aria-pressed={filters.tags.includes(t)} onClick={() => toggleTag(t)}>{t}</button>
             ))}
           </div>
         </div>

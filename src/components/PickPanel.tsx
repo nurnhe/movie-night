@@ -20,7 +20,7 @@ export function PickPanel({ pick, poolSize, onRoll, onWatched }: Props) {
           <>
             <div className="pick-title" key={pick.id}>{pick.title}</div>
             <div className="pick-meta">
-              {[pick.year, pick.rating != null && `★ ${pick.rating.toFixed(1)}`, formatRuntime(pick.runtime), pick.genres.join(", ")].filter(Boolean).join(" · ")}
+              {[pick.year, pick.rating != null && `★ ${pick.rating.toFixed(1)}`, formatRuntime(pick.runtime), [...pick.genres, ...pick.tags].join(", ")].filter(Boolean).join(" · ")}
             </div>
             {pick.overview && <p className="pick-overview">{pick.overview}</p>}
             {pick.tmdb_id && <a className="ticket-link" href={letterboxdUrl(pick.tmdb_id)} target="_blank" rel="noreferrer">Open on Letterboxd</a>}
