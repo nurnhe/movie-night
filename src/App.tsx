@@ -6,7 +6,7 @@ import { authMessage } from "./lib/authErrors";
 import { moveGroupMoviesToMainList, useGroups } from "./lib/groups";
 import type { Group, Movie, NewMovie } from "./lib/types";
 import { useMovies } from "./lib/useMovies";
-import { allTags, emptyFilters, matchesFilters, pickRandom, sortMovies, type Filters, type SortKey } from "./lib/filters";
+import { allTags, emptyFilters, matchesFilters, pickRandom, sortMovies, tagLabel, tagLabels, type Filters, type SortKey } from "./lib/filters";
 import { SignIn } from "./components/SignIn";
 import { AddMovie } from "./components/AddMovie";
 import { StarRating } from "./components/StarRating";
@@ -169,7 +169,9 @@ function Queue({ email }: { email: string }) {
   );
   // Keep selected tags visible even if no movie has them any more, so they can be turned off.
   const tags = useMemo(() => allTags([...movies, { genres: [], tags: filters.tags }]), [movies, filters.tags]);
-  const customTags = useMemo(() => [...new Set(movies.flatMap((m) => m.tags))].sort(), [movies]);
+  const labels = useMemo(() => tagLabels(movies), [movies]);
+  // Suggest genres too, so typing "com" offers the existing "Comedy" rather than a new spelling.
+  const tagSuggestions = useMemo(() => allTags(movies), [movies]);
   const pool = useMemo(() => movies.filter((m) => !m.watched && matchesFilters(m, active)), [movies, active]);
   const inScope = scope ? movies.filter((m) => m.shared_with === scope) : movies;
   const todo = inScope.filter((m) => !m.watched);
@@ -260,7 +262,7 @@ function Queue({ email }: { email: string }) {
                 onWatched={(w) => markWatched(m, w)} onDelete={() => safe(remove(m))}
                 me={me} onRate={(stars) => safe(rate(m, stars))}
                 onAddTag={(t) => safe(addTag(m, t))} onRemoveTag={(t) => safe(removeTag(m, t))}
-                groups={groups} onShare={(sharedWith) => safe(share(m, sharedWith))} />
+                groups={groups} onShare={(sharedWith) => safe(share(m, sharedWith))} labelFor={(t) => tagLabel(labels, t)} />
             ))
           ) : (
             <div className="empty">
@@ -281,7 +283,7 @@ function Queue({ email }: { email: string }) {
 
       <footer className="foot muted small">Movie details and ratings from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</footer>
 
-      <datalist id="tag-suggestions">{customTags.map((t) => <option key={t} value={t} />)}</datalist>
+      <datalist id="tag-suggestions">{tagSuggestions.map((t) => <option key={t} value={t} />)}</datalist>
 
       {suggesting && <Suggestions movies={movies} me={me} userEmail={email} groups={groups} defaultShare={defaultShare} onAdd={addMovie} onClose={() => setSuggesting(false)} />}
       {adding && <AddMovie existing={movies} userEmail={email} groups={groups} defaultShare={defaultShare} onAdd={addMovie} onClose={() => setAdding(false)} />}

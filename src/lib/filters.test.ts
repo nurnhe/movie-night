@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allTags, formatRuntime, matchesFilters, emptyFilters, normalizeTag, parseTags, pickRandom, sortMovies } from "./filters";
+import { allTags, formatRuntime, hasTag, matchesFilters, emptyFilters, normalizeTag, parseTags, pickRandom, sortMovies, tagLabel, tagLabels, toggleTag } from "./filters";
 import type { Movie } from "./types";
 
 const base: Movie = {
@@ -77,5 +77,34 @@ describe("tags", () => {
   });
   it("lists genres and custom tags together, sorted without regard to case", () => {
     expect(allTags([base, long])).toEqual(["Comedy", "cozy", "Drama", "Family", "History"]);
+  });
+});
+
+describe("tags that differ only by case", () => {
+  const genreComedy = { genres: ["Comedy"], tags: [] as string[] };
+  const customComedy = { genres: [] as string[], tags: ["comedy", "cozy"] };
+
+  it("list a genre and a custom tag with the same name once, using the genre's spelling", () => {
+    expect(allTags([customComedy, genreComedy])).toEqual(["Comedy", "cozy"]);
+  });
+
+  it("show a custom tag with the genre's spelling when one exists", () => {
+    const labels = tagLabels([customComedy, genreComedy]);
+    expect(tagLabel(labels, "comedy")).toBe("Comedy");
+    expect(tagLabel(labels, "cozy")).toBe("cozy");
+    expect(tagLabel(labels, "unknown")).toBe("unknown");
+  });
+
+  it("filter across both spellings", () => {
+    const tagged = { ...base, id: "t", genres: [], tags: ["comedy"] };
+    const genred = { ...base, id: "g", genres: ["Comedy"], tags: [] };
+    expect(matchesFilters(tagged, { ...emptyFilters, tags: ["Comedy"] })).toBe(true);
+    expect(matchesFilters(genred, { ...emptyFilters, tags: ["comedy"] })).toBe(true);
+  });
+
+  it("toggle a selected tag off whatever its capitals", () => {
+    expect(hasTag(["Comedy"], "comedy")).toBe(true);
+    expect(toggleTag(["Comedy", "cozy"], "comedy")).toEqual(["cozy"]);
+    expect(toggleTag(["cozy"], "Comedy")).toEqual(["cozy", "Comedy"]);
   });
 });

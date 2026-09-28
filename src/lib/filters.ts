@@ -10,10 +10,20 @@ export interface Filters {
 
 export const emptyFilters: Filters = { search: "", tags: [], maxRuntime: null, minRating: null, scope: "" };
 
+// TMDB genres keep their capitals ("Comedy") and custom tags are stored lowercase ("comedy");
+// they're the same tag whenever they differ only by case.
+const tagKey = (t: string) => t.toLowerCase();
+
+export const hasTag = (list: string[], tag: string) => list.some((t) => tagKey(t) === tagKey(tag));
+
+export function toggleTag(selected: string[], tag: string): string[] {
+  return hasTag(selected, tag) ? selected.filter((t) => tagKey(t) !== tagKey(tag)) : [...selected, tag];
+}
+
 export function matchesFilters(m: Movie, f: Filters): boolean {
   const q = f.search.trim().toLowerCase();
   if (q && !m.title.toLowerCase().includes(q) && !(m.note ?? "").toLowerCase().includes(q) && !m.tags.some((t) => t.includes(q))) return false;
-  if (f.tags.length && ![...m.genres, ...m.tags].some((t) => f.tags.includes(t))) return false;
+  if (f.tags.length && ![...m.genres, ...m.tags].some((t) => hasTag(f.tags, t))) return false;
   if (f.maxRuntime != null && (m.runtime == null || m.runtime > f.maxRuntime)) return false;
   if (f.minRating != null && (m.rating == null || m.rating < f.minRating)) return false;
   if (f.scope && m.shared_with !== f.scope) return false;
@@ -32,8 +42,18 @@ export function parseTags(text: string): string[] {
   return [...new Set(text.split(",").map(normalizeTag).filter((t): t is string => t !== null))].slice(0, MAX_TAGS);
 }
 
+// How each tag is shown, by its lowercase form. A genre's spelling wins over a custom tag's.
+export function tagLabels(movies: Pick<Movie, "genres" | "tags">[]): Map<string, string> {
+  const labels = new Map<string, string>();
+  for (const m of movies) for (const g of m.genres) if (!labels.has(tagKey(g))) labels.set(tagKey(g), g);
+  for (const m of movies) for (const t of m.tags) if (!labels.has(tagKey(t))) labels.set(tagKey(t), t);
+  return labels;
+}
+
+export const tagLabel = (labels: Map<string, string>, tag: string) => labels.get(tagKey(tag)) ?? tag;
+
 export function allTags(movies: Pick<Movie, "genres" | "tags">[]): string[] {
-  return [...new Set(movies.flatMap((m) => [...m.genres, ...m.tags]))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  return [...tagLabels(movies).values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
 export function pickRandom<T extends { id: string }>(pool: T[], avoidId: string | null, rand = Math.random): T | null {

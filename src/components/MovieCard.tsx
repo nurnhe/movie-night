@@ -17,9 +17,10 @@ interface Props {
   onRate: (stars: number | null) => void;
   groups: Group[];
   onShare: (sharedWith: string) => void;
+  labelFor: (tag: string) => string;
 }
 
-export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag, onRemoveTag, me, onRate, groups, onShare }: Props) {
+export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag, onRemoveTag, me, onRate, groups, onShare, labelFor }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [tagging, setTagging] = useState(false);
   const [draft, setDraft] = useState("");
@@ -36,6 +37,8 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
 
   const poster = posterUrl(m.poster_path);
   const shareLabel = sharingLabel(m.shared_with, groups);
+  const genreKeys = m.genres.map((g) => g.toLowerCase());
+  const customTags = m.tags.filter((t) => !genreKeys.includes(t.toLowerCase()));
   const othersRatings = Object.entries(m.ratings).filter(([email]) => email !== me).sort(([a], [b]) => a.localeCompare(b));
   return (
     <article className={"movie" + (highlighted ? " highlight" : "")}>
@@ -47,10 +50,10 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
           {m.rating != null && <span className="rating" title={`${m.vote_count ?? 0} votes on TMDB`}>★ {m.rating.toFixed(1)}</span>}
           {m.runtime != null && <span className="runtime">{formatRuntime(m.runtime)}</span>}
           {m.genres.map((g) => <span key={g} className="tag">{g}</span>)}
-          {m.tags.map((t) => (
+          {customTags.map((t) => (
             <span key={`tag:${t}`} className="tag custom">
-              {t}
-              <button type="button" className="tag-x" aria-label={`Remove tag ${t}`} onClick={() => onRemoveTag(t)}>×</button>
+              {labelFor(t)}
+              <button type="button" className="tag-x" aria-label={`Remove tag ${labelFor(t)}`} onClick={() => onRemoveTag(t)}>×</button>
             </span>
           ))}
           {tagging ? (

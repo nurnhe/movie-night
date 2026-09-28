@@ -1,4 +1,4 @@
-import type { Filters } from "../lib/filters";
+import { hasTag, toggleTag, type Filters } from "../lib/filters";
 import type { Group } from "../lib/types";
 
 interface Props {
@@ -27,8 +27,7 @@ const ratings = [
 
 export function FiltersBar({ filters, onChange, tags, groups, onNewGroup, onEditGroup }: Props) {
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
-  const toggleTag = (t: string) =>
-    set({ tags: filters.tags.includes(t) ? filters.tags.filter((x) => x !== t) : [...filters.tags, t] });
+  const toggle = (t: string) => set({ tags: toggleTag(filters.tags, t) });
   const selectedGroup = groups.find((g) => `group:${g.id}` === filters.scope);
 
   return (
@@ -74,7 +73,7 @@ export function FiltersBar({ filters, onChange, tags, groups, onNewGroup, onEdit
           <span className="label">Tags <span className="label-hint">genres and your own tags; matches any selected</span></span>
           <div className="chips">
             {tags.map((t) => (
-              <button key={t} type="button" className="chip" aria-pressed={filters.tags.includes(t)} onClick={() => toggleTag(t)}>{t}</button>
+              <button key={t} type="button" className="chip" aria-pressed={hasTag(filters.tags, t)} onClick={() => toggle(t)}>{t}</button>
             ))}
           </div>
         </div>
