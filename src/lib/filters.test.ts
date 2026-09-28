@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRuntime, matchesFilters, emptyFilters, pickRandom, sortMovies } from "./filters";
+import { formatRuntime, matchesFilters, emptyFilters, pickRandom, scopeAdders, sortMovies } from "./filters";
 import type { Movie } from "./types";
 
 const base: Movie = {
@@ -24,12 +24,25 @@ describe("matchesFilters", () => {
     expect(matchesFilters(long, f)).toBe(false);
     expect(matchesFilters(bare, f)).toBe(false);
   });
-  it("filters by min rating, search and who added it", () => {
+  it("filters by min rating and search", () => {
     expect(matchesFilters(base, { ...emptyFilters, minRating: 8 })).toBe(false);
     expect(matchesFilters(long, { ...emptyFilters, minRating: 8 })).toBe(true);
     expect(matchesFilters(base, { ...emptyFilters, search: "COZY" })).toBe(true);
-    expect(matchesFilters(base, { ...emptyFilters, addedBy: "b@x.com" })).toBe(false);
   });
+  it("keeps only movies added by the given people, ignoring email case", () => {
+    expect(matchesFilters(base, emptyFilters, ["b@x.com"])).toBe(false);
+    expect(matchesFilters(long, emptyFilters, ["b@x.com"])).toBe(true);
+    expect(matchesFilters({ ...base, added_by: "A@X.com" }, emptyFilters, ["a@x.com"])).toBe(true);
+    expect(matchesFilters({ ...base, added_by: null }, emptyFilters, ["a@x.com"])).toBe(false);
+  });
+});
+
+describe("scopeAdders", () => {
+  const groups = [{ id: "g1", members: ["a@x.com", "b@x.com"] }];
+  it("means everyone when empty", () => expect(scopeAdders("", "a@x.com", groups)).toBeNull());
+  it("means just me for 'mine'", () => expect(scopeAdders("mine", "a@x.com", groups)).toEqual(["a@x.com"]));
+  it("means the group's members for a group", () => expect(scopeAdders("group:g1", "a@x.com", groups)).toEqual(["a@x.com", "b@x.com"]));
+  it("falls back to everyone for a group that no longer exists", () => expect(scopeAdders("group:gone", "a@x.com", groups)).toBeNull());
 });
 
 describe("pickRandom", () => {

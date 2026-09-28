@@ -1,36 +1,23 @@
 import { useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, runTransaction, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, runTransaction, where } from "firebase/firestore";
 import { db } from "./firebase";
 import { applyMemberChanges, newMoviesOnly } from "./groupLogic";
 import type { Group, Movie } from "./types";
 
-export type StoredMovie = Omit<Movie, "id">;
-
 const groupsRef = collection(db, "groups");
-export const groupMovies = (groupId: string) => collection(db, "groups", groupId, "movies");
 
 export function useGroups(me: string) {
-  const [groups, setGroups] = useState<Group[] | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // A just-created group shows up locally before the server has it, and the movie rules
-    // look the group up on the server, so only surface groups the server has confirmed.
-    const confirmed = new Set<string>();
-    return onSnapshot(
-      query(groupsRef, where("members", "array-contains", me)),
-      { includeMetadataChanges: true },
-      (snap) => {
-        for (const d of snap.docs) if (!d.metadata.hasPendingWrites) confirmed.add(d.id);
-        setGroups(snap.docs
-          .filter((d) => confirmed.has(d.id))
-          .map((d) => ({ ...d.data(), id: d.id }) as Group)
-          .sort((a, b) => a.name.localeCompare(b.name)));
-        setError(null);
-      },
-      (err) => setError(err.message),
-    );
-  }, [me]);
+  useEffect(() => onSnapshot(
+    query(groupsRef, where("members", "array-contains", me)),
+    (snap) => {
+      setGroups(snap.docs.map((d) => ({ ...d.data(), id: d.id }) as Group).sort((a, b) => a.name.localeCompare(b.name)));
+      setError(null);
+    },
+    (err) => setError(err.message),
+  ), [me]);
 
   return { groups, error };
 }
@@ -55,33 +42,17 @@ export function updateGroup(id: string, patch: { name?: string; added?: string[]
   });
 }
 
-export async function deleteGroup(id: string) {
-  const movies = await getDocs(groupMovies(id));
-  await Promise.all(movies.docs.map((d) => deleteDoc(d.ref)));
-  await deleteDoc(doc(groupsRef, id));
-}
+export const deleteGroup = (id: string) => deleteDoc(doc(groupsRef, id));
 
-export async function copyMoviesInto(groupId: string, movies: StoredMovie[]): Promise<number> {
-  const existing = await getDocs(groupMovies(groupId));
-  const fresh = newMoviesOnly(existing.docs.map((d) => d.data() as StoredMovie), movies);
-  await Promise.all(fresh.map((m) => addDoc(groupMovies(groupId), m)));
-  return fresh.length;
-}
-
-// The single shared list from before groups existed; readable only by people in /members.
-export function useOriginalList(me: string) {
-  const [movies, setMovies] = useState<StoredMovie[]>([]);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const member = await getDoc(doc(db, "members", me));
-      if (!member.exists()) return;
-      const snap = await getDocs(collection(db, "movies"));
-      if (active) setMovies(snap.docs.map((d) => d.data() as StoredMovie));
-    })().catch(() => { /* no original list to offer */ });
-    return () => { active = false; };
-  }, [me]);
-
-  return movies;
+// Groups briefly had their own lists; move anything added there back into the shared list.
+export async function moveGroupMoviesToMainList(groupIds: string[], mainList: Pick<Movie, "tmdb_id" | "title">[]) {
+  const known = [...mainList];
+  for (const id of groupIds) {
+    const snap = await getDocs(collection(db, "groups", id, "movies"));
+    if (snap.empty) continue;
+    const fresh = newMoviesOnly(known, snap.docs.map((d) => d.data() as Omit<Movie, "id">));
+    await Promise.all(fresh.map((m) => addDoc(collection(db, "movies"), m)));
+    known.push(...fresh);
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  }
 }

@@ -5,19 +5,25 @@ export interface Filters {
   genres: string[];      // match any
   maxRuntime: number | null;
   minRating: number | null;
-  addedBy: string;
+  scope: string; // "" everyone, "mine", or "group:<id>"
 }
 
-export const emptyFilters: Filters = { search: "", genres: [], maxRuntime: null, minRating: null, addedBy: "" };
+export const emptyFilters: Filters = { search: "", genres: [], maxRuntime: null, minRating: null, scope: "" };
 
-export function matchesFilters(m: Movie, f: Filters): boolean {
+export function matchesFilters(m: Movie, f: Filters, adders: string[] | null = null): boolean {
   const q = f.search.trim().toLowerCase();
   if (q && !m.title.toLowerCase().includes(q) && !(m.note ?? "").toLowerCase().includes(q)) return false;
   if (f.genres.length && !m.genres.some((g) => f.genres.includes(g))) return false;
   if (f.maxRuntime != null && (m.runtime == null || m.runtime > f.maxRuntime)) return false;
   if (f.minRating != null && (m.rating == null || m.rating < f.minRating)) return false;
-  if (f.addedBy && m.added_by !== f.addedBy) return false;
+  if (adders && !adders.includes((m.added_by ?? "").toLowerCase())) return false;
   return true;
+}
+
+export function scopeAdders(scope: string, me: string, groups: { id: string; members: string[] }[]): string[] | null {
+  if (scope === "mine") return [me];
+  if (scope.startsWith("group:")) return groups.find((g) => `group:${g.id}` === scope)?.members ?? null;
+  return null;
 }
 
 export function pickRandom<T extends { id: string }>(pool: T[], avoidId: string | null, rand = Math.random): T | null {

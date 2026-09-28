@@ -1,28 +1,24 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { copyMoviesInto, createGroup, deleteGroup, updateGroup, type StoredMovie } from "../lib/groups";
+import { createGroup, deleteGroup, updateGroup } from "../lib/groups";
 import { MAX_GROUP_NAME, MAX_MEMBERS, parseEmails } from "../lib/groupLogic";
 import type { Group } from "../lib/types";
 
 interface Props {
   group: Group | null; // null creates a new group
   me: string;
-  originalList: StoredMovie[];
-  firstGroup: boolean;
   onCreated: (groupId: string) => void;
   onClose: () => void;
 }
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong. Try again.");
 
-export function GroupDialog({ group, me, originalList, firstGroup, onCreated, onClose }: Props) {
+export function GroupDialog({ group, me, onCreated, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(group?.name ?? "");
   const [others, setOthers] = useState<string[]>(group ? group.members.filter((e) => e !== me) : []);
   const [draft, setDraft] = useState("");
-  const [bringOver, setBringOver] = useState(firstGroup && originalList.length > 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
 
   useEffect(() => { dialog.current?.showModal(); }, []);
 
@@ -56,9 +52,7 @@ export function GroupDialog({ group, me, originalList, firstGroup, onCreated, on
           removed: before.filter((p) => !people.includes(p)),
         });
       } else {
-        const id = await createGroup(trimmed, people, me);
-        onCreated(id);
-        if (bringOver) await copyMoviesInto(id, originalList);
+        onCreated(await createGroup(trimmed, people, me));
       }
       close();
     } catch (err) {
@@ -75,18 +69,6 @@ export function GroupDialog({ group, me, originalList, firstGroup, onCreated, on
     catch (err) { setError(errorText(err)); setBusy(false); }
   }
 
-  async function copyOriginal() {
-    if (!group) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const n = await copyMoviesInto(group.id, originalList);
-      setNotice(n ? `Copied ${n} movie${n === 1 ? "" : "s"} into this group.` : "Everything from the original list is already here.");
-    } catch (err) { setError(errorText(err)); }
-    setBusy(false);
-  }
-
   const solo = group !== null && group.members.length <= 1;
 
   return (
@@ -95,10 +77,10 @@ export function GroupDialog({ group, me, originalList, firstGroup, onCreated, on
         <h2>{group ? "Group settings" : "New group"}</h2>
 
         <label htmlFor="group-name" className="label">Name</label>
-        <input id="group-name" type="text" autoFocus={!group} maxLength={MAX_GROUP_NAME} placeholder="e.g. Friday movie night"
+        <input id="group-name" type="text" autoFocus={!group} maxLength={MAX_GROUP_NAME} placeholder="e.g. Me and Sam"
           value={name} onChange={(e) => setName(e.target.value)} />
 
-        <span className="label">People <span className="label-hint">everyone here sees and edits this list</span></span>
+        <span className="label">People <span className="label-hint">the group filter shows movies any of them added</span></span>
         <ul className="people">
           <li><span>{me}</span><span className="pill">You</span></li>
           {others.map((p) => (
@@ -114,34 +96,19 @@ export function GroupDialog({ group, me, originalList, firstGroup, onCreated, on
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (draft.trim()) addDraft(); } }} />
           <button type="button" className="btn" onClick={addDraft} disabled={!draft.trim()}>Add</button>
         </div>
-        <p className="muted small">People sign in with the email you add here. Anyone without an account yet needs one created in Firebase first.</p>
+        <p className="muted small">Use the email they sign in with. Adding someone here doesn't give them access to the app; that's set up in Firebase.</p>
 
-        {!group && originalList.length > 0 && (
-          <label className="check">
-            <input type="checkbox" checked={bringOver} onChange={(e) => setBringOver(e.target.checked)} />
-            Bring over the {originalList.length} movie{originalList.length === 1 ? "" : "s"} from the original shared list
-          </label>
-        )}
-        {group && originalList.length > 0 && (
-          <p className="small">
-            <button type="button" className="linklike" onClick={copyOriginal} disabled={busy}>
-              Copy movies from the original shared list into this group
-            </button>
-          </p>
-        )}
-
-        {notice && <p className="notice small">{notice}</p>}
         {error && <p className="error">{error}</p>}
 
         <div className="dialog-actions">
           {group && (solo ? (
             <button type="button" className="btn ghost danger" disabled={busy}
-              onClick={() => act(`Delete "${group.name}" and everything on its list? This can't be undone.`, () => deleteGroup(group.id))}>
+              onClick={() => act(`Delete the group "${group.name}"? Movies stay on the list.`, () => deleteGroup(group.id))}>
               Delete group
             </button>
           ) : (
             <button type="button" className="btn ghost danger" disabled={busy}
-              onClick={() => act(`Leave "${group.name}"? You'll lose access to its list unless someone adds you back.`, () => updateGroup(group.id, { removed: [me] }))}>
+              onClick={() => act(`Leave "${group.name}"? It will disappear from your filters. Movies stay on the list.`, () => updateGroup(group.id, { removed: [me] }))}>
               Leave group
             </button>
           ))}

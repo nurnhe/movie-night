@@ -1,11 +1,16 @@
 import type { Filters } from "../lib/filters";
+import type { Group } from "../lib/types";
 
 interface Props {
   filters: Filters;
   onChange: (f: Filters) => void;
   genres: string[];
-  people: string[];
+  groups: Group[];
+  onNewGroup: () => void;
+  onEditGroup: (g: Group) => void;
 }
+
+const NEW_GROUP = "__new";
 
 const runtimes = [
   { v: "", label: "Any length" },
@@ -20,14 +25,32 @@ const ratings = [
   { v: "8", label: "★ 8+" },
 ];
 
-export function FiltersBar({ filters, onChange, genres, people }: Props) {
+export function FiltersBar({ filters, onChange, genres, groups, onNewGroup, onEditGroup }: Props) {
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
   const toggleGenre = (g: string) =>
     set({ genres: filters.genres.includes(g) ? filters.genres.filter((x) => x !== g) : [...filters.genres, g] });
+  const selectedGroup = groups.find((g) => `group:${g.id}` === filters.scope);
 
   return (
     <section className="filters" aria-label="Filters">
       <div className="filter-row">
+        <div className="field">
+          <label htmlFor="f-scope" className="label">Show</label>
+          <select id="f-scope" value={filters.scope}
+            onChange={(e) => (e.target.value === NEW_GROUP ? onNewGroup() : set({ scope: e.target.value }))}>
+            <option value="">Everyone's movies</option>
+            <option value="mine">My movies</option>
+            {groups.length > 0 && (
+              <optgroup label="Added by a group">
+                {groups.map((g) => <option key={g.id} value={`group:${g.id}`}>{g.name}</option>)}
+              </optgroup>
+            )}
+            <option value={NEW_GROUP}>+ New group…</option>
+          </select>
+        </div>
+        {selectedGroup && (
+          <button type="button" className="btn ghost small" onClick={() => onEditGroup(selectedGroup)}>Edit group</button>
+        )}
         <div className="field grow">
           <label htmlFor="f-search" className="label">Search</label>
           <input id="f-search" type="search" placeholder="Title or note" value={filters.search} onChange={(e) => set({ search: e.target.value })} />
@@ -44,15 +67,6 @@ export function FiltersBar({ filters, onChange, genres, people }: Props) {
             {ratings.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
           </select>
         </div>
-        {people.length > 1 && (
-          <div className="field">
-            <label htmlFor="f-by" className="label">Added by</label>
-            <select id="f-by" value={filters.addedBy} onChange={(e) => set({ addedBy: e.target.value })}>
-              <option value="">Anyone</option>
-              {people.map((p) => <option key={p} value={p}>{p.split("@")[0]}</option>)}
-            </select>
-          </div>
-        )}
       </div>
       {genres.length > 0 && (
         <div className="field">

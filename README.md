@@ -1,8 +1,8 @@
 # Movie Night Queue
 
-A shared watchlist for small groups. Add movies by searching TMDB (poster, rating, runtime and genres fill in automatically), filter by genre, length, rating or who added it, let the app pick a random movie that fits, and mark movies as watched. Everyone in the group sees changes live.
+A shared watchlist for a few friends. Add movies by searching TMDB (poster, rating, runtime and genres fill in automatically), filter by genre, length or rating, let the app pick a random movie that fits, and mark movies as watched. Everyone sees changes live.
 
-Each group has its own list. Anyone signed in can create a group and add people by email; any member can rename it, add or remove people, or leave, and the last member can delete it. A person can be in several groups and switch between them at the top of the page.
+Everyone shares one list. The **Show** filter narrows it to everyone's movies, your own, or the movies added by the people in one of your groups. Groups are just named sets of people for that filter: anyone can create one from the filter menu, and any member can rename it, add or remove people, or leave (the last member can delete it). Groups never hide or remove movies.
 
 - **Frontend:** React + Vite, deployed to GitHub Pages
 - **Shared list and sign-in:** Firebase (Cloud Firestore, email sign-in links, live updates), free Spark plan
@@ -16,13 +16,14 @@ Each group has its own list. Anyone signed in can create a group and add people 
 3. Still in Authentication, open **Settings > Authorized domains** and add `<user>.github.io`. `localhost` is already there for local development.
 4. **Databases and storage > Firestore > Create database** (older consoles: **Build > Firestore Database**): pick a location near you and start in **production mode**.
 5. In Firestore's **Rules** tab, replace everything with the contents of [`firestore.rules`](firestore.rules) and click **Publish**.
-6. Create an account for each person: **Authentication > Users > Add user**, with their email and a password. Each person can sign in with that password, or use **Email me a sign-in link instead** on the sign-in screen.
-7. Turn off sign-ups so nobody else can create an account: **Authentication > Settings > User actions**, uncheck **Enable create (sign-up)** and save. With sign-ups on, a stranger could sign in and make their own groups, though they still couldn't see yours.
-8. **Project settings (gear icon) > General > Your apps**: click the **Web** (`</>`) icon, register an app (no Hosting needed), and copy `apiKey`, `authDomain`, `projectId` and `appId` from the config it shows.
+6. In Firestore's **Data** tab, list everyone who can use the app: **Start collection**, collection ID `members`, then add one document per person with the **email address in lowercase as the Document ID** (e.g. `you@example.com`). Add any field, such as `name`. Only these emails can see or change the list.
+7. Create an account for each person: **Authentication > Users > Add user**, with their email and a password. Each person can sign in with that password, or use **Email me a sign-in link instead** on the sign-in screen.
+8. Turn off sign-ups so nobody else can create an account: **Authentication > Settings > User actions**, uncheck **Enable create (sign-up)** and save.
+9. **Project settings (gear icon) > General > Your apps**: click the **Web** (`</>`) icon, register an app (no Hosting needed), and copy `apiKey`, `authDomain`, `projectId` and `appId` from the config it shows.
 
-The first time each person signs in with a password, the app asks them to confirm their email with a one-time verification link. Signing in with an email link confirms it automatically. After that, people create groups and invite each other from inside the app.
+The first time each person signs in with a password, the app asks them to confirm their email with a one-time verification link. Signing in with an email link confirms it automatically.
 
-**Upgrading from the single shared list:** the old list (the top-level `movies` collection) stays readable, but not editable, for the emails in the old `members` collection. When one of them creates their first group, the app offers to bring those movies over; it's also under **Group settings** for existing groups. Copying skips movies the group already has.
+To add someone later, do steps 6 and 7 for them. Adding them to a group in the app only changes that group's filter.
 
 These Firebase values end up in the site's JavaScript. That's by design: access is controlled by the Firestore rules, not by keeping the config secret.
 

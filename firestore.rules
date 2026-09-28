@@ -1,7 +1,8 @@
 rules_version = '2';
 
 // Paste this into Firebase console > Firestore Database > Rules, then Publish.
-// Each group's list is visible only to the emails in that group's `members`.
+// Everyone listed in /members shares one list in /movies. Groups are named sets of people
+// used to filter that list; each group is visible only to its own members.
 service cloud.firestore {
   match /databases/{database}/documents {
     function me() {
@@ -31,14 +32,14 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'members']);
       allow delete: if verified() && me() in resource.data.members;
 
+      // Groups briefly held their own lists; members can still read and clear them out.
       match /movies/{movieId} {
         allow read, write: if verified()
           && me() in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
       }
     }
 
-    // The original single shared list from before groups. Still editable so a pre-groups build of the
-    // site keeps working, and readable so its members can copy it into a group.
+    // Each person may check their own membership; members are managed in the console only.
     match /members/{email} {
       allow get: if request.auth != null && me() == email;
     }

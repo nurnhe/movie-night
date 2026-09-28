@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { isSignInWithEmailLink, onAuthStateChanged, sendEmailVerification, signInWithEmailLink, signOut as firebaseSignOut, type User } from "firebase/auth";
-import { auth, firebaseConfigured, SIGNIN_EMAIL_KEY } from "./lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db, firebaseConfigured, SIGNIN_EMAIL_KEY } from "./lib/firebase";
 import { authMessage } from "./lib/authErrors";
-import { useGroups, useOriginalList } from "./lib/groups";
+import { moveGroupMoviesToMainList, useGroups } from "./lib/groups";
 import type { Group } from "./lib/types";
 import { useMovies } from "./lib/useMovies";
-import { emptyFilters, matchesFilters, pickRandom, sortMovies, type Filters, type SortKey } from "./lib/filters";
+import { emptyFilters, matchesFilters, pickRandom, scopeAdders, sortMovies, type Filters, type SortKey } from "./lib/filters";
 import { SignIn } from "./components/SignIn";
 import { AddMovie } from "./components/AddMovie";
 import { GroupDialog } from "./components/GroupDialog";
@@ -100,100 +101,68 @@ function Setup() {
   );
 }
 
-const GROUP_KEY = "mnq-group";
-const NEW_GROUP = "__new";
-
-function loadFilters(groupId: string): Filters {
-  try { return { ...emptyFilters, ...JSON.parse(localStorage.getItem(`mnq-filters-${groupId}`) ?? "{}") }; } catch { return emptyFilters; }
+function loadFilters(): Filters {
+  try { return { ...emptyFilters, ...JSON.parse(localStorage.getItem("mnq-filters") ?? "{}") }; } catch { return emptyFilters; }
 }
 
 type DialogState = { kind: "create" } | { kind: "edit"; group: Group } | null;
 
 function Queue({ email }: { email: string }) {
   const me = email.toLowerCase();
-  const { groups, error } = useGroups(me);
-  const originalList = useOriginalList(me);
-  const [selectedId, setSelectedId] = useState<string | null>(() => { try { return localStorage.getItem(GROUP_KEY); } catch { return null; } });
-  const [dialog, setDialog] = useState<DialogState>(null);
-  const group = groups?.find((g) => g.id === selectedId) ?? groups?.[0] ?? null;
-
-  const select = (id: string) => {
-    setSelectedId(id);
-    try { localStorage.setItem(GROUP_KEY, id); } catch { /* storage unavailable */ }
-  };
-  const signOut = () => firebaseSignOut(auth);
-
-  let content;
-  if (error) {
-    content = (
-      <main className="signin">
-        <h1 className="brand">Movie Night <span>Queue</span></h1>
-        <p className="error">Couldn't load your groups: {error}</p>
-        <button className="btn" onClick={() => window.location.reload()}>Try again</button>
-        <p className="muted small"><button className="linklike" onClick={signOut}>Sign out</button></p>
-      </main>
-    );
-  } else if (!groups) {
-    content = <main className="signin"><h1 className="brand">Movie Night <span>Queue</span></h1><p className="muted">Loading your groups…</p></main>;
-  } else if (!group) {
-    content = (
-      <main className="signin">
-        <h1 className="brand">Movie Night <span>Queue</span></h1>
-        <p className="lede">You're not in a group yet. Create one and add the people you watch with. Each group has its own list.</p>
-        <button className="btn primary" onClick={() => setDialog({ kind: "create" })}>Create a group</button>
-        <p className="muted small">If someone adds <strong>{email}</strong> to their group, it shows up here right away.</p>
-        <p className="muted small"><button className="linklike" onClick={signOut}>Sign out</button></p>
-      </main>
-    );
-  } else {
-    content = (
-      <GroupList key={group.id} group={group} groups={groups} email={email} onSignOut={signOut}
-        onSelect={select} onNewGroup={() => setDialog({ kind: "create" })} onSettings={() => setDialog({ kind: "edit", group })} />
-    );
-  }
-
-  // The dialog stays the second child so it isn't remounted when the page behind it changes.
-  return (
-    <>
-      {content}
-      {dialog && (
-        <GroupDialog group={dialog.kind === "edit" ? dialog.group : null} me={me} originalList={originalList}
-          firstGroup={!groups?.length} onCreated={select} onClose={() => setDialog(null)} />
-      )}
-    </>
-  );
-}
-
-interface GroupListProps {
-  group: Group;
-  groups: Group[];
-  email: string;
-  onSelect: (id: string) => void;
-  onNewGroup: () => void;
-  onSettings: () => void;
-  onSignOut: () => void;
-}
-
-function GroupList({ group, groups, email, onSelect, onNewGroup, onSettings, onSignOut }: GroupListProps) {
-  const { movies, loading, error, live, add, setWatched, remove, clearError } = useMovies(group.id);
-  const [filters, setFilters] = useState<Filters>(() => loadFilters(group.id));
+  const [access, setAccess] = useState<"checking" | "member" | "not-member" | "error">("checking");
+  const [accessError, setAccessError] = useState("");
+  const { movies, loading, error, live, add, setWatched, remove, clearError } = useMovies(access === "member");
+  const { groups } = useGroups(me);
+  const [filters, setFilters] = useState<Filters>(loadFilters);
   const [tab, setTab] = useState<"todo" | "done">("todo");
   const [sort, setSort] = useState<SortKey>("added");
   const [pickId, setPickId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [dialog, setDialog] = useState<DialogState>(null);
+  const movedGroupMovies = useRef(false);
 
-  useEffect(() => { try { localStorage.setItem(`mnq-filters-${group.id}`, JSON.stringify(filters)); } catch { /* storage unavailable */ } }, [group.id, filters]);
+  useEffect(() => {
+    getDoc(doc(db, "members", me)).then(
+      (snap) => setAccess(snap.exists() ? "member" : "not-member"),
+      (e) => { setAccessError(e instanceof Error ? e.message : String(e)); setAccess("error"); },
+    );
+  }, [me]);
+  useEffect(() => { try { localStorage.setItem("mnq-filters", JSON.stringify(filters)); } catch { /* storage unavailable */ } }, [filters]);
+  useEffect(() => {
+    if (movedGroupMovies.current || access !== "member" || loading || !groups.length) return;
+    movedGroupMovies.current = true;
+    moveGroupMoviesToMainList(groups.map((g) => g.id), movies).catch(() => { /* tried again next visit */ });
+  }, [access, loading, groups, movies]);
 
+  const scope = filters.scope.startsWith("group:") && !groups.some((g) => `group:${g.id}` === filters.scope) ? "" : filters.scope;
+  const adders = useMemo(() => scopeAdders(scope, me, groups), [scope, me, groups]);
   const genres = useMemo(() => [...new Set(movies.flatMap((m) => m.genres))].sort(), [movies]);
-  const people = useMemo(() => [...new Set(movies.map((m) => m.added_by).filter((p): p is string => !!p))].sort(), [movies]);
-  const pool = useMemo(() => movies.filter((m) => !m.watched && matchesFilters(m, filters)), [movies, filters]);
-  const todo = movies.filter((m) => !m.watched);
-  const done = movies.filter((m) => m.watched);
-  const shown = sortMovies((tab === "todo" ? todo : done).filter((m) => matchesFilters(m, filters)), sort);
+  const pool = useMemo(() => movies.filter((m) => !m.watched && matchesFilters(m, filters, adders)), [movies, filters, adders]);
+  const inScope = adders ? movies.filter((m) => matchesFilters(m, emptyFilters, adders)) : movies;
+  const todo = inScope.filter((m) => !m.watched);
+  const done = inScope.filter((m) => m.watched);
+  const shown = sortMovies((tab === "todo" ? todo : done).filter((m) => matchesFilters(m, filters, adders)), sort);
   const pick = movies.find((m) => m.id === pickId && !m.watched) ?? null;
-  const others = group.members.length - 1;
 
+  const signOut = () => firebaseSignOut(auth);
   const safe = (p: Promise<unknown>) => p.catch(() => { /* surfaced through error */ });
+
+  if (access !== "member") {
+    return (
+      <main className="signin">
+        <h1 className="brand">Movie Night <span>Queue</span></h1>
+        {access === "checking" && <p className="muted">Loading…</p>}
+        {access === "not-member" && <p className="lede">You're signed in as <strong>{email}</strong>, but this email isn't on the list of people who share it. Ask the owner to add it to the members collection in Firebase.</p>}
+        {access === "error" && (
+          <>
+            <p className="error">Couldn't check your access: {accessError}</p>
+            <button className="btn" onClick={() => window.location.reload()}>Try again</button>
+          </>
+        )}
+        {access !== "checking" && <button className="btn" onClick={signOut}>Sign out</button>}
+      </main>
+    );
+  }
 
   return (
     <div className="wrap">
@@ -201,18 +170,9 @@ function GroupList({ group, groups, email, onSelect, onNewGroup, onSettings, onS
         <h1 className="brand">Movie Night <span>Queue</span></h1>
         <div className="top-right">
           <span className="sync"><span className={"dot" + (live ? " live" : "")} />{live ? "Synced" : "Connecting…"}</span>
-          <button className="btn ghost small" onClick={onSignOut}>Sign out</button>
+          <button className="btn ghost small" onClick={signOut}>Sign out</button>
         </div>
       </header>
-
-      <div className="groupbar">
-        <select aria-label="Group" value={group.id} onChange={(e) => (e.target.value === NEW_GROUP ? onNewGroup() : onSelect(e.target.value))}>
-          {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-          <option value={NEW_GROUP}>+ New group…</option>
-        </select>
-        <span className="muted small">{others ? `You and ${others} other${others === 1 ? "" : "s"}` : "Just you"}</span>
-        <button className="btn ghost small" onClick={onSettings}>Group settings</button>
-      </div>
 
       {error && <div className="banner" role="alert">That didn't save: {error} <button className="linklike" onClick={clearError}>Dismiss</button></div>}
 
@@ -223,7 +183,8 @@ function GroupList({ group, groups, email, onSelect, onNewGroup, onSettings, onS
         onWatched={() => pick && safe(setWatched(pick, true))}
       />
 
-      <FiltersBar filters={filters} onChange={setFilters} genres={genres} people={people} />
+      <FiltersBar filters={{ ...filters, scope }} onChange={setFilters} genres={genres} groups={groups}
+        onNewGroup={() => setDialog({ kind: "create" })} onEditGroup={(group) => setDialog({ kind: "edit", group })} />
 
       <section className="list-section">
         <div className="listhead">
@@ -253,10 +214,10 @@ function GroupList({ group, groups, email, onSelect, onNewGroup, onSettings, onS
             ))
           ) : (
             <div className="empty">
-              <strong>{!movies.length ? "This list is empty" : tab === "done" && !done.length ? "Nothing watched yet" : "No movies match these filters"}</strong>
-              {!movies.length ? (others ? "Add the first movie you want to see. It shows up for everyone in the group right away." : "Add a movie, or open Group settings to invite people.")
+              <strong>{!movies.length ? "Your list is empty" : tab === "done" && !done.length ? "Nothing watched yet" : "No movies match these filters"}</strong>
+              {!movies.length ? "Add the first movie you want to see. It shows up for everyone right away."
                 : tab === "done" && !done.length ? "Mark a movie as watched and it moves here."
-                : <>Try a longer length or fewer genres. <button className="linklike" onClick={() => setFilters(emptyFilters)}>Clear filters</button></>}
+                : <>Try another “Show” option, a longer length or fewer genres. <button className="linklike" onClick={() => setFilters(emptyFilters)}>Clear filters</button></>}
             </div>
           )}
         </div>
@@ -265,6 +226,10 @@ function GroupList({ group, groups, email, onSelect, onNewGroup, onSettings, onS
       <footer className="foot muted small">Movie details and ratings from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</footer>
 
       {adding && <AddMovie existing={movies} userEmail={email} onAdd={add} onClose={() => setAdding(false)} />}
+      {dialog && (
+        <GroupDialog group={dialog.kind === "edit" ? dialog.group : null} me={me}
+          onCreated={(id) => setFilters((f) => ({ ...f, scope: `group:${id}` }))} onClose={() => setDialog(null)} />
+      )}
     </div>
   );
 }
