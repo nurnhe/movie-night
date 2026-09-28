@@ -1,22 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMemberChanges, newMoviesOnly, parseEmails } from "./groupLogic";
-
-describe("parseEmails", () => {
-  it("splits on commas, spaces and newlines, lowercases and dedupes", () => {
-    expect(parseEmails(" A@Example.com, b@example.com\nb@example.com;c@example.com ")).toEqual({
-      valid: ["a@example.com", "b@example.com", "c@example.com"],
-      invalid: [],
-    });
-  });
-
-  it("reports anything that isn't an email", () => {
-    expect(parseEmails("a@example.com nope bob@")).toEqual({ valid: ["a@example.com"], invalid: ["nope", "bob@"] });
-  });
-
-  it("returns nothing for blank input", () => {
-    expect(parseEmails("  ")).toEqual({ valid: [], invalid: [] });
-  });
-});
+import { applyMemberChanges, mergePeople, newMoviesOnly, personLabel } from "./groupLogic";
 
 describe("applyMemberChanges", () => {
   it("keeps concurrent additions made by someone else", () => {
@@ -40,5 +23,24 @@ describe("newMoviesOnly", () => {
 
   it("drops duplicates within the incoming list", () => {
     expect(newMoviesOnly([], [m("Heat", 949), m("Heat", 949)])).toEqual([m("Heat", 949)]);
+  });
+});
+
+describe("mergePeople", () => {
+  it("combines the member list with other known emails, keeping names and dropping duplicates", () => {
+    const people = mergePeople(
+      [{ email: "Sam@X.io", name: "Sam" }, { email: "kira@x.io", name: "" }],
+      ["sam@x.io", "alex@x.io", null, "  ", "KIRA@x.io"],
+    );
+    expect(people).toEqual([
+      { email: "alex@x.io", name: "" },
+      { email: "kira@x.io", name: "" },
+      { email: "sam@x.io", name: "Sam" },
+    ]);
+  });
+
+  it("labels people by name when there is one", () => {
+    expect(personLabel({ email: "sam@x.io", name: "Sam" })).toBe("Sam (sam@x.io)");
+    expect(personLabel({ email: "alex@x.io", name: "" })).toBe("alex@x.io");
   });
 });

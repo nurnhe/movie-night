@@ -39,9 +39,11 @@ service cloud.firestore {
       }
     }
 
-    // Each person may check their own membership; members are managed in the console only.
+    // Each person may check their own membership, and members can see who else is on the list
+    // (to pick people for groups). Members are managed in the console only.
     match /members/{email} {
       allow get: if request.auth != null && me() == email;
+      allow list: if verified() && exists(/databases/$(database)/documents/members/$(me()));
     }
     match /movies/{movieId} {
       allow read, write: if verified() && exists(/databases/$(database)/documents/members/$(me()));

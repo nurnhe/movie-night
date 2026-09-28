@@ -26,3 +26,8 @@ export interface Group {
   created_by: string;
   created_at: string;
 }
+
+export interface Person {
+  email: string; // lowercase
+  name: string;  // may be empty
+}

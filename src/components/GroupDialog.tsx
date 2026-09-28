@@ -1,22 +1,22 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createGroup, deleteGroup, updateGroup } from "../lib/groups";
-import { MAX_GROUP_NAME, MAX_MEMBERS, parseEmails } from "../lib/groupLogic";
-import type { Group } from "../lib/types";
+import { MAX_GROUP_NAME, MAX_MEMBERS, personLabel } from "../lib/groupLogic";
+import type { Group, Person } from "../lib/types";
 
 interface Props {
   group: Group | null; // null creates a new group
   me: string;
+  people: Person[];
   onCreated: (groupId: string) => void;
   onClose: () => void;
 }
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong. Try again.");
 
-export function GroupDialog({ group, me, onCreated, onClose }: Props) {
+export function GroupDialog({ group, me, people, onCreated, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(group?.name ?? "");
   const [others, setOthers] = useState<string[]>(group ? group.members.filter((e) => e !== me) : []);
-  const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,21 +24,21 @@ export function GroupDialog({ group, me, onCreated, onClose }: Props) {
 
   const close = () => dialog.current?.close();
 
-  function addDraft(): string[] | null {
-    const { valid, invalid } = parseEmails(draft);
-    if (invalid.length) { setError(`"${invalid[0]}" isn't an email address.`); return null; }
-    const next = [...new Set([...others, ...valid.filter((e) => e !== me)])];
-    if (next.length + 1 > MAX_MEMBERS) { setError(`A group can have up to ${MAX_MEMBERS} people.`); return null; }
-    setOthers(next);
-    setDraft("");
+  const candidates = people.filter((p) => p.email !== me && !others.includes(p.email));
+  const labelFor = (email: string) => {
+    const person = people.find((p) => p.email === email);
+    return person ? personLabel(person) : email;
+  };
+
+  function addPerson(email: string) {
+    if (!email) return;
+    if (others.length + 2 > MAX_MEMBERS) { setError(`A group can have up to ${MAX_MEMBERS} people.`); return; }
+    setOthers([...others, email]);
     setError("");
-    return next;
   }
 
   async function save(e: FormEvent) {
     e.preventDefault();
-    const people = draft.trim() ? addDraft() : others;
-    if (!people) return;
     const trimmed = name.trim();
     if (!trimmed) { setError("Give the group a name."); return; }
     setBusy(true);
@@ -48,11 +48,11 @@ export function GroupDialog({ group, me, onCreated, onClose }: Props) {
         const before = group.members.filter((p) => p !== me);
         await updateGroup(group.id, {
           name: trimmed,
-          added: people.filter((p) => !before.includes(p)),
-          removed: before.filter((p) => !people.includes(p)),
+          added: others.filter((p) => !before.includes(p)),
+          removed: before.filter((p) => !others.includes(p)),
         });
       } else {
-        onCreated(await createGroup(trimmed, people, me));
+        onCreated(await createGroup(trimmed, others, me));
       }
       close();
     } catch (err) {
@@ -82,21 +82,19 @@ export function GroupDialog({ group, me, onCreated, onClose }: Props) {
 
         <span className="label">People <span className="label-hint">the group filter shows movies any of them added</span></span>
         <ul className="people">
-          <li><span>{me}</span><span className="pill">You</span></li>
+          <li><span>{labelFor(me)}</span><span className="pill">You</span></li>
           {others.map((p) => (
             <li key={p}>
-              <span>{p}</span>
+              <span>{labelFor(p)}</span>
               <button type="button" className="btn ghost small" onClick={() => setOthers(others.filter((o) => o !== p))} aria-label={`Remove ${p}`}>Remove</button>
             </li>
           ))}
         </ul>
-        <div className="add-person">
-          <input type="text" inputMode="email" autoComplete="off" aria-label="Add people by email" placeholder="Add by email, e.g. partner@example.com"
-            value={draft} onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (draft.trim()) addDraft(); } }} />
-          <button type="button" className="btn" onClick={addDraft} disabled={!draft.trim()}>Add</button>
-        </div>
-        <p className="muted small">Use the email they sign in with. Adding someone here doesn't give them access to the app; that's set up in Firebase.</p>
+        <select aria-label="Add a person" value="" onChange={(e) => addPerson(e.target.value)} disabled={!candidates.length}>
+          <option value="">{candidates.length ? "Add a person…" : "Everyone is already in this group"}</option>
+          {candidates.map((p) => <option key={p.email} value={p.email}>{personLabel(p)}</option>)}
+        </select>
+        <p className="muted small">Lists everyone who can use the app. To add someone new, give them access in Firebase first.</p>
 
         {error && <p className="error">{error}</p>}
 

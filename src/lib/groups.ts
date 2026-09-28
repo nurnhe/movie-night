@@ -2,9 +2,32 @@ import { useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, runTransaction, where } from "firebase/firestore";
 import { db } from "./firebase";
 import { applyMemberChanges, newMoviesOnly } from "./groupLogic";
-import type { Group, Movie } from "./types";
+import type { Group, Movie, Person } from "./types";
 
 const groupsRef = collection(db, "groups");
+
+// Everyone who can use the app. Empty until the rules allow members to list /members.
+export function useMemberDirectory(enabled: boolean) {
+  const [people, setPeople] = useState<Person[]>([]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+    getDocs(collection(db, "members")).then(
+      (snap) => {
+        if (!active) return;
+        setPeople(snap.docs.map((d) => {
+          const name = d.data().name;
+          return { email: d.id.toLowerCase(), name: typeof name === "string" ? name : "" };
+        }));
+      },
+      () => { /* older rules: fall back to people we already know from movies and groups */ },
+    );
+    return () => { active = false; };
+  }, [enabled]);
+
+  return people;
+}
 
 export function useGroups(me: string) {
   const [groups, setGroups] = useState<Group[]>([]);

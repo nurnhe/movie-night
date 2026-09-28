@@ -2,7 +2,7 @@
 
 A shared watchlist for a few friends. Add movies by searching TMDB (poster, rating, runtime and genres fill in automatically), filter by genre, length or rating, let the app pick a random movie that fits, and mark movies as watched. Everyone sees changes live.
 
-Everyone shares one list. The **Show** filter narrows it to everyone's movies, your own, or the movies added by the people in one of your groups. Groups are just named sets of people for that filter: anyone can create one from the filter menu, and any member can rename it, add or remove people, or leave (the last member can delete it). Groups never hide or remove movies.
+Everyone shares one list. The **Show** filter narrows it to everyone's movies, your own, or the movies added by the people in one of your groups. Groups are just named sets of people for that filter: anyone can create one from the filter menu and pick people from everyone on the `members` list, and any member can rename it, add or remove people, or leave (the last member can delete it). Groups never hide or remove movies.
 
 - **Frontend:** React + Vite, deployed to GitHub Pages
 - **Shared list and sign-in:** Firebase (Cloud Firestore, email sign-in links, live updates), free Spark plan

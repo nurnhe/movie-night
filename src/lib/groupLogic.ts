@@ -1,17 +1,7 @@
-import type { Movie } from "./types";
+import type { Movie, Person } from "./types";
 
 export const MAX_MEMBERS = 20;
 export const MAX_GROUP_NAME = 60;
-
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function parseEmails(text: string): { valid: string[]; invalid: string[] } {
-  const parts = text.split(/[\s,;]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
-  const valid: string[] = [];
-  const invalid: string[] = [];
-  for (const p of parts) (EMAIL.test(p) ? valid : invalid).push(p);
-  return { valid: [...new Set(valid)], invalid };
-}
 
 export function applyMemberChanges(current: string[], added: string[], removed: string[]): string[] {
   const gone = new Set(removed);
@@ -31,3 +21,18 @@ export function newMoviesOnly<T extends Keyed>(existing: Keyed[], incoming: T[])
     return true;
   });
 }
+
+export function mergePeople(directory: Person[], moreEmails: (string | null | undefined)[]): Person[] {
+  const byEmail = new Map<string, Person>();
+  for (const p of directory) {
+    const email = p.email.trim().toLowerCase();
+    if (email) byEmail.set(email, { email, name: p.name.trim() });
+  }
+  for (const raw of moreEmails) {
+    const email = raw?.trim().toLowerCase();
+    if (email && !byEmail.has(email)) byEmail.set(email, { email, name: "" });
+  }
+  return [...byEmail.values()].sort((a, b) => personLabel(a).localeCompare(personLabel(b)));
+}
+
+export const personLabel = (p: Person) => (p.name ? `${p.name} (${p.email})` : p.email);
