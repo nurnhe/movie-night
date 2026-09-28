@@ -50,7 +50,7 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 5px; border-r
 
 .label { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .label-hint { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 4px; }
-input[type=text], input[type=search], input[type=email], select {
+input[type=text], input[type=search], input[type=email], input[type=password], select {
   background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; width: 100%;
 }
 .field { display: grid; gap: 4px; min-width: 0; }
