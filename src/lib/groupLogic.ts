@@ -2,6 +2,7 @@ import type { Movie, Person } from "./types";
 
 export const MAX_MEMBERS = 20;
 export const MAX_GROUP_NAME = 60;
+export const MAX_NAME_LENGTH = 40; // matches the limit in firestore.rules
 
 export function normalizeEmail(text: string): string | null {
   const email = text.trim().toLowerCase();
@@ -41,3 +42,13 @@ export function mergePeople(directory: Person[], moreEmails: (string | null | un
 }
 
 export const personLabel = (p: Person) => (p.name ? `${p.name} (${p.email})` : p.email);
+
+// For everyday display (cards, ratings, headers): just the name, falling back to the
+// part of the email before the @ when nobody has set one yet.
+export function displayName(email: string | null | undefined, people: Person[]): string {
+  if (!email) return "";
+  const key = email.trim().toLowerCase();
+  const person = people.find((p) => p.email === key);
+  const name = person?.name.trim();
+  return name || key.split("@")[0];
+}

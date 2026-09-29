@@ -74,10 +74,15 @@ service cloud.firestore {
     }
 
     // Each person may check their own membership, and members can see who else is on the list
-    // (to pick people for groups). Members are managed in the console only.
+    // (to pick people for groups and show names). Membership is managed in the console only;
+    // people may only change the display name on their own entry.
     match /members/{email} {
       allow get: if request.auth != null && me() == email;
       allow list: if isMember();
+      allow update: if verified() && me() == email
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40;
     }
 
     // Movies shared with everyone. Ratings are keyed by email; each person may only set,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMemberChanges, mergePeople, newMoviesOnly, normalizeEmail, personLabel } from "./groupLogic";
+import { applyMemberChanges, displayName, mergePeople, newMoviesOnly, normalizeEmail, personLabel } from "./groupLogic";
 
 describe("applyMemberChanges", () => {
   it("keeps concurrent additions made by someone else", () => {
@@ -43,6 +43,14 @@ describe("mergePeople", () => {
     expect(personLabel({ email: "sam@x.io", name: "Sam" })).toBe("Sam (sam@x.io)");
     expect(personLabel({ email: "alex@x.io", name: "" })).toBe("alex@x.io");
   });
+});
+
+describe("displayName", () => {
+  const people = [{ email: "sam@x.io", name: "Sam" }, { email: "kira@x.io", name: "" }];
+  it("shows the person's name when they've set one", () => expect(displayName("Sam@X.io", people)).toBe("Sam"));
+  it("falls back to the email's local part when no name is set", () => expect(displayName("kira@x.io", people)).toBe("kira"));
+  it("falls back for someone not in the directory at all", () => expect(displayName("guest@x.io", people)).toBe("guest"));
+  it("handles a missing email", () => expect(displayName(null, people)).toBe(""));
 });
 
 describe("normalizeEmail", () => {

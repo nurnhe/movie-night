@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, runTransaction, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, runTransaction, updateDoc, where } from "firebase/firestore";
 import { db } from "./firebase";
 import { applyMemberChanges, newMoviesOnly } from "./groupLogic";
 import type { Group, Movie, Person } from "./types";
@@ -14,6 +14,28 @@ export async function loadMemberDirectory(): Promise<Person[]> {
     return { email: d.id.trim().toLowerCase(), name: typeof name === "string" ? name : "" };
   });
 }
+
+// Live directory of everyone who can use the app, for showing names instead of emails.
+// Needs the rules that let members list /members; falls back to bare emails otherwise.
+export function useMemberDirectory(enabled: boolean) {
+  const [people, setPeople] = useState<Person[]>([]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    return onSnapshot(
+      collection(db, "members"),
+      (snap) => setPeople(snap.docs.map((d) => {
+        const name = d.data().name;
+        return { email: d.id.trim().toLowerCase(), name: typeof name === "string" ? name : "" };
+      })),
+      () => { /* names just fall back to emails */ },
+    );
+  }, [enabled]);
+
+  return people;
+}
+
+export const setMyName = (email: string, name: string) => updateDoc(doc(db, "members", email), { name });
 
 export function useGroups(me: string) {
   const [groups, setGroups] = useState<Group[]>([]);

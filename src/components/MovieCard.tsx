@@ -18,9 +18,10 @@ interface Props {
   groups: Group[];
   onShare: (sharedWith: string) => void;
   labelFor: (tag: string) => string;
+  nameFor: (email: string | null) => string;
 }
 
-export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag, onRemoveTag, me, onRate, groups, onShare, labelFor }: Props) {
+export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag, onRemoveTag, me, onRate, groups, onShare, labelFor, nameFor }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [tagging, setTagging] = useState(false);
   const [draft, setDraft] = useState("");
@@ -74,12 +75,12 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
             <span className="muted small">Your rating</span>
             <StarRating value={m.ratings[me] ?? null} onChange={onRate} label={`Your rating for ${m.title}`} />
             {othersRatings.length > 0 && (
-              <span className="muted small">{othersRatings.map(([email, stars]) => `${email.split("@")[0]} ${"★".repeat(stars)}`).join(" · ")}</span>
+              <span className="muted small">{othersRatings.map(([email, stars]) => `${nameFor(email)} ${"★".repeat(stars)}`).join(" · ")}</span>
             )}
           </div>
         )}
-        {m.note && <p className="note">“{m.note}”{m.added_by && <span className="muted"> · {m.added_by.split("@")[0]}</span>}</p>}
-        {!m.note && m.added_by && <p className="note muted">Added by {m.added_by.split("@")[0]}</p>}
+        {m.note && <p className="note">“{m.note}”{m.added_by && <span className="muted"> · {nameFor(m.added_by)}</span>}</p>}
+        {!m.note && m.added_by && <p className="note muted">Added by {nameFor(m.added_by)}</p>}
         <div className="links">
           {m.tmdb_id && <a href={letterboxdUrl(m.tmdb_id)} target="_blank" rel="noreferrer">Letterboxd</a>}
           {m.imdb_id && <a href={imdbUrl(m.imdb_id)} target="_blank" rel="noreferrer">IMDb</a>}

@@ -3,10 +3,11 @@ import { isSignInWithEmailLink, onAuthStateChanged, sendEmailVerification, signI
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db, firebaseConfigured, SIGNIN_EMAIL_KEY } from "./lib/firebase";
 import { authMessage } from "./lib/authErrors";
-import { moveGroupMoviesToMainList, useGroups } from "./lib/groups";
+import { moveGroupMoviesToMainList, setMyName, useGroups, useMemberDirectory } from "./lib/groups";
 import type { Group, Movie, NewMovie } from "./lib/types";
 import { useMovies } from "./lib/useMovies";
 import { allTags, emptyFilters, matchesFilters, pickRandom, sortMovies, tagLabel, tagLabels, type Filters, type SortKey } from "./lib/filters";
+import { displayName } from "./lib/groupLogic";
 import { SignIn } from "./components/SignIn";
 import { AddMovie } from "./components/AddMovie";
 import { StarRating } from "./components/StarRating";
@@ -15,6 +16,7 @@ import { GroupDialog } from "./components/GroupDialog";
 import { FiltersBar } from "./components/FiltersBar";
 import { MovieCard } from "./components/MovieCard";
 import { PickPanel } from "./components/PickPanel";
+import { NameEditor } from "./components/NameEditor";
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -128,6 +130,7 @@ function Queue({ email }: { email: string }) {
   const [accessError, setAccessError] = useState("");
   const { groups } = useGroups(me);
   const groupIds = useMemo(() => groups.map((g) => g.id), [groups]);
+  const people = useMemberDirectory(access === "member");
   const { movies, loading, error, live, add, setWatched, remove, addTag, removeTag, rate, share, clearError } = useMovies(access === "member", me, groupIds);
   const [lastShare, setLastShare] = useState(loadShare);
   const [filters, setFilters] = useState<Filters>(loadFilters);
@@ -209,6 +212,7 @@ function Queue({ email }: { email: string }) {
       <header className="top">
         <h1 className="brand">Movie Night <span>Queue</span></h1>
         <div className="top-right">
+          <NameEditor me={me} people={people} onSave={(name) => setMyName(me, name)} />
           <span className="sync"><span className={"dot" + (live ? " live" : "")} />{live ? "Synced" : "Connecting…"}</span>
           <button className="btn ghost small" onClick={signOut}>Sign out</button>
         </div>
@@ -262,7 +266,8 @@ function Queue({ email }: { email: string }) {
                 onWatched={(w) => markWatched(m, w)} onDelete={() => safe(remove(m))}
                 me={me} onRate={(stars) => safe(rate(m, stars))}
                 onAddTag={(t) => safe(addTag(m, t))} onRemoveTag={(t) => safe(removeTag(m, t))}
-                groups={groups} onShare={(sharedWith) => safe(share(m, sharedWith))} labelFor={(t) => tagLabel(labels, t)} />
+                groups={groups} onShare={(sharedWith) => safe(share(m, sharedWith))} labelFor={(t) => tagLabel(labels, t)}
+                nameFor={(e) => displayName(e, people)} />
             ))
           ) : (
             <div className="empty">
