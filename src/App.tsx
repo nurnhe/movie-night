@@ -8,6 +8,7 @@ import type { Group, Movie, NewMovie } from "./lib/types";
 import { useMovies } from "./lib/useMovies";
 import { allTags, emptyFilters, matchesFilters, pickRandom, sortMovies, tagLabel, tagLabels, type Filters, type SortKey } from "./lib/filters";
 import { displayName } from "./lib/groupLogic";
+import { kindOf, statusOf, type Status } from "./lib/media";
 import { SignIn } from "./components/SignIn";
 import { AddMovie } from "./components/AddMovie";
 import { StarRating } from "./components/StarRating";
@@ -131,10 +132,10 @@ function Queue({ email }: { email: string }) {
   const { groups } = useGroups(me);
   const groupIds = useMemo(() => groups.map((g) => g.id), [groups]);
   const people = useMemberDirectory(access === "member");
-  const { movies, loading, error, live, add, setWatched, remove, addTag, removeTag, rate, share, clearError } = useMovies(access === "member", me, groupIds);
+  const { movies, loading, error, live, add, setStatus, remove, addTag, removeTag, rate, share, clearError } = useMovies(access === "member", me, groupIds);
   const [lastShare, setLastShare] = useState(loadShare);
   const [filters, setFilters] = useState<Filters>(loadFilters);
-  const [tab, setTab] = useState<"todo" | "done">("todo");
+  const [tab, setTab] = useState<Status>("todo");
   const [sort, setSort] = useState<SortKey>("added");
   const [pickId, setPickId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -175,18 +176,22 @@ function Queue({ email }: { email: string }) {
   const labels = useMemo(() => tagLabels(movies), [movies]);
   // Suggest genres too, so typing "com" offers the existing "Comedy" rather than a new spelling.
   const tagSuggestions = useMemo(() => allTags(movies), [movies]);
-  const pool = useMemo(() => movies.filter((m) => !m.watched && matchesFilters(m, active)), [movies, active]);
-  const inScope = scope ? movies.filter((m) => m.shared_with === scope) : movies;
-  const todo = inScope.filter((m) => !m.watched);
-  const done = inScope.filter((m) => m.watched);
-  const shown = sortMovies((tab === "todo" ? todo : done).filter((m) => matchesFilters(m, active)), sort);
-  const pick = movies.find((m) => m.id === pickId && !m.watched) ?? null;
+  // What to roll from: things nobody has started yet.
+  const pool = useMemo(() => movies.filter((m) => statusOf(m) === "todo" && matchesFilters(m, active)), [movies, active]);
+  // The list and type choose which titles the tabs count; the other filters narrow what a tab shows.
+  const inScope = movies.filter((m) => (!scope || m.shared_with === scope) && (!filters.kind || kindOf(m) === filters.kind));
+  const byStatus = (s: Status) => inScope.filter((m) => statusOf(m) === s);
+  const todo = byStatus("todo");
+  const watching = byStatus("watching");
+  const done = byStatus("done");
+  const shown = sortMovies(byStatus(tab).filter((m) => matchesFilters(m, active)), sort);
+  const pick = movies.find((m) => m.id === pickId && statusOf(m) === "todo") ?? null;
 
   const signOut = () => firebaseSignOut(auth);
   const safe = (p: Promise<unknown>) => p.catch(() => { /* surfaced through error */ });
-  const markWatched = (m: Movie, watched: boolean) => {
-    safe(setWatched(m, watched));
-    setRateNextId(watched && m.ratings[me] == null ? m.id : null);
+  const changeStatus = (m: Movie, status: Status) => {
+    safe(setStatus(m, status));
+    setRateNextId(status === "done" && m.ratings[me] == null ? m.id : null);
   };
   const rateNext = movies.find((m) => m.id === rateNextId && m.watched && m.ratings[me] == null) ?? null;
 
@@ -224,7 +229,7 @@ function Queue({ email }: { email: string }) {
         pick={pick}
         poolSize={pool.length}
         onRoll={() => setPickId(pickRandom(pool, pickId)?.id ?? null)}
-        onWatched={() => pick && markWatched(pick, true)}
+        onWatched={() => pick && changeStatus(pick, "done")}
       />
 
       {rateNext && (
@@ -242,6 +247,7 @@ function Queue({ email }: { email: string }) {
         <div className="listhead">
           <div className="tabs" role="tablist">
             <button role="tab" aria-selected={tab === "todo"} onClick={() => setTab("todo")}>To watch <span className="n">{todo.length}</span></button>
+            <button role="tab" aria-selected={tab === "watching"} onClick={() => setTab("watching")}>Watching <span className="n">{watching.length}</span></button>
             <button role="tab" aria-selected={tab === "done"} onClick={() => setTab("done")}>Watched <span className="n">{done.length}</span></button>
           </div>
           <div className="listhead-right">
@@ -253,7 +259,7 @@ function Queue({ email }: { email: string }) {
               <option value="title">Title A–Z</option>
             </select>
             <button className="btn" onClick={() => setSuggesting(true)}>Suggestions</button>
-            <button className="btn primary" onClick={() => setAdding(true)}>Add a movie</button>
+            <button className="btn primary" onClick={() => setAdding(true)}>Add a title</button>
           </div>
         </div>
 
@@ -263,7 +269,7 @@ function Queue({ email }: { email: string }) {
           ) : shown.length ? (
             shown.map((m) => (
               <MovieCard key={m.id} movie={m} highlighted={m.id === pickId}
-                onWatched={(w) => markWatched(m, w)} onDelete={() => safe(remove(m))}
+                onStatus={(s) => changeStatus(m, s)} onDelete={() => safe(remove(m))}
                 me={me} onRate={(stars) => safe(rate(m, stars))}
                 onAddTag={(t) => safe(addTag(m, t))} onRemoveTag={(t) => safe(removeTag(m, t))}
                 groups={groups} onShare={(sharedWith) => safe(share(m, sharedWith))} labelFor={(t) => tagLabel(labels, t)}
@@ -271,16 +277,15 @@ function Queue({ email }: { email: string }) {
             ))
           ) : (
             <div className="empty">
-              <strong>
-                {!movies.length ? "Your list is empty"
-                  : tab === "done" && !done.length ? "Nothing watched yet"
-                  : tab === "todo" && !todo.length ? "Everything's watched"
-                  : "No movies match these filters"}
-              </strong>
-              {!movies.length ? "Add the first movie you want to see. It shows up for everyone right away."
-                : tab === "done" && !done.length ? "Mark a movie as watched and it moves here."
-                : tab === "todo" && !todo.length ? "Add another movie, or check the Watched tab."
-                : <>Try another “Show” option, a longer length or fewer tags. <button className="linklike" onClick={() => setFilters(emptyFilters)}>Clear filters</button></>}
+              {(() => {
+                const clear = <button className="linklike" onClick={() => setFilters(emptyFilters)}>Clear filters</button>;
+                if (!movies.length) return <><strong>Your list is empty</strong>Add the first title you want to watch. It shows up for everyone it's shared with right away.</>;
+                if (!inScope.length) return <><strong>Nothing in this list</strong>Try another list or type, or add a title. {clear}</>;
+                if (tab === "done" && !done.length) return <><strong>Nothing watched yet</strong>Mark a title as watched and it moves here.</>;
+                if (tab === "watching" && !watching.length) return <><strong>Nothing in progress</strong>Start watching a title and it shows up here.</>;
+                if (tab === "todo" && !todo.length) return <><strong>Nothing left to watch</strong>Add another title, or check the Watching and Watched tabs.</>;
+                return <><strong>No titles match these filters</strong>Try another list or type, a longer length or fewer tags. {clear}</>;
+              })()}
             </div>
           )}
         </div>

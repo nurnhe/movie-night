@@ -4,9 +4,10 @@ import { normalizeMovie } from "./movies";
 describe("normalizeMovie", () => {
   it("fills in every field with a safe default from an empty document", () => {
     expect(normalizeMovie("m1", {}, "movies")).toEqual({
-      id: "m1", tmdb_id: null, imdb_id: null, title: "Untitled", year: null, runtime: null, genres: [],
+      id: "m1", media_type: "movie", anime: false, tmdb_id: null, imdb_id: null, title: "Untitled", year: null,
+      runtime: null, seasons: null, episodes: null, series_status: null, genres: [],
       rating: null, vote_count: null, poster_path: null, overview: null, note: null, added_by: null,
-      watched: false, watched_at: null, created_at: new Date(0).toISOString(), tags: [], ratings: {},
+      watched: false, watching: false, watched_at: null, created_at: new Date(0).toISOString(), tags: [], ratings: {},
       shared_with: "all", owner: null,
     });
   });
@@ -23,6 +24,17 @@ describe("normalizeMovie", () => {
   it("reads who a restricted movie is shared with", () => {
     expect(normalizeMovie("r1", { owner: "k@x.io", group_id: null }, "restricted")).toMatchObject({ shared_with: "me", owner: "k@x.io" });
     expect(normalizeMovie("r2", { owner: "k@x.io", group_id: "g1" }, "restricted")).toMatchObject({ shared_with: "group:g1", owner: "k@x.io" });
+  });
+
+  it("reads TV shows and anime, and treats an unknown media type as a movie", () => {
+    const show = normalizeMovie("t1", { media_type: "tv", anime: true, seasons: 2, episodes: 28, series_status: "Ended", runtime: 24 }, "movies");
+    expect(show).toMatchObject({ media_type: "tv", anime: true, seasons: 2, episodes: 28, series_status: "Ended", runtime: 24 });
+    expect(normalizeMovie("t2", { media_type: "podcast", anime: "yes" }, "movies")).toMatchObject({ media_type: "movie", anime: false });
+  });
+
+  it("reads the watching state, but never alongside watched", () => {
+    expect(normalizeMovie("w1", { watching: true }, "movies").watching).toBe(true);
+    expect(normalizeMovie("w2", { watching: true, watched: true }, "movies")).toMatchObject({ watched: true, watching: false });
   });
 
   it("keeps well-formed values as they are", () => {

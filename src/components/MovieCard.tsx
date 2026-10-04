@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { formatRuntime, MAX_TAG_LENGTH, MAX_TAGS, normalizeTag } from "../lib/filters";
-import { imdbUrl, letterboxdUrl, posterUrl } from "../lib/tmdb";
+import { kindOf, KIND_LABELS, seriesSize, seriesStatusLabel, statusOf, type Status } from "../lib/media";
+import { posterUrl, titleLinks } from "../lib/tmdb";
 import { canChangeSharing, sharingLabel } from "../lib/sharing";
 import type { Group, Movie } from "../lib/types";
 import { ShareSelect } from "./ShareSelect";
@@ -9,7 +10,7 @@ import { StarRating } from "./StarRating";
 interface Props {
   movie: Movie;
   highlighted: boolean;
-  onWatched: (watched: boolean) => void;
+  onStatus: (status: Status) => void;
   onDelete: () => void;
   onAddTag: (tag: string) => void;
   onRemoveTag: (tag: string) => void;
@@ -21,7 +22,7 @@ interface Props {
   nameFor: (email: string | null) => string;
 }
 
-export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag, onRemoveTag, me, onRate, groups, onShare, labelFor, nameFor }: Props) {
+export function MovieCard({ movie: m, highlighted, onStatus, onDelete, onAddTag, onRemoveTag, me, onRate, groups, onShare, labelFor, nameFor }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [tagging, setTagging] = useState(false);
   const [draft, setDraft] = useState("");
@@ -38,6 +39,11 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
 
   const poster = posterUrl(m.poster_path);
   const shareLabel = sharingLabel(m.shared_with, groups);
+  const kind = kindOf(m);
+  const status = statusOf(m);
+  const isShow = m.media_type === "tv";
+  const showStatus = seriesStatusLabel(m.series_status);
+  const size = isShow ? seriesSize(m.seasons, m.episodes) : "";
   const genreKeys = m.genres.map((g) => g.toLowerCase());
   const customTags = m.tags.filter((t) => !genreKeys.includes(t.toLowerCase()));
   const othersRatings = Object.entries(m.ratings).filter(([email]) => email !== me).sort(([a], [b]) => a.localeCompare(b));
@@ -47,9 +53,11 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
       <div className="movie-body">
         <h3>{m.title}{m.year && <span className="yr">{m.year}</span>}</h3>
         <div className="meta">
-          {shareLabel && <span className="pill share" title="Who can see this movie">{shareLabel}</span>}
+          {kind !== "movie" && <span className="pill kind">{KIND_LABELS[kind]}</span>}
+          {shareLabel && <span className="pill share" title="Who can see this title">{shareLabel}</span>}
           {m.rating != null && <span className="rating" title={`${m.vote_count ?? 0} votes on TMDB`}>★ {m.rating.toFixed(1)}</span>}
-          {m.runtime != null && <span className="runtime">{formatRuntime(m.runtime)}</span>}
+          {m.runtime != null && <span className="runtime">{formatRuntime(m.runtime)}{isShow ? "/ep" : ""}</span>}
+          {(size || showStatus) && <span className="muted">{[size, showStatus].filter(Boolean).join(" · ")}</span>}
           {m.genres.map((g) => <span key={g} className="tag">{g}</span>)}
           {customTags.map((t) => (
             <span key={`tag:${t}`} className="tag custom">
@@ -82,8 +90,7 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
         {m.note && <p className="note">“{m.note}”{m.added_by && <span className="muted"> · {nameFor(m.added_by)}</span>}</p>}
         {!m.note && m.added_by && <p className="note muted">Added by {nameFor(m.added_by)}</p>}
         <div className="links">
-          {m.tmdb_id && <a href={letterboxdUrl(m.tmdb_id)} target="_blank" rel="noreferrer">Letterboxd</a>}
-          {m.imdb_id && <a href={imdbUrl(m.imdb_id)} target="_blank" rel="noreferrer">IMDb</a>}
+          {titleLinks(m).map((l) => <a key={l.label} href={l.url} target="_blank" rel="noreferrer">{l.label}</a>)}
         </div>
       </div>
       <div className="actions">
@@ -99,7 +106,9 @@ export function MovieCard({ movie: m, highlighted, onWatched, onDelete, onAddTag
             {canChangeSharing(m, me) && (
               <ShareSelect className="share-select" label={`Who sees ${m.title}`} value={m.shared_with} onChange={onShare} groups={groups} />
             )}
-            <button className="btn" onClick={() => onWatched(!m.watched)}>{m.watched ? "Move back to list" : "Mark watched"}</button>
+            {status === "todo" && <button className="btn" onClick={() => onStatus("watching")}>Start watching</button>}
+            {status !== "done" && <button className="btn" onClick={() => onStatus("done")}>Mark watched</button>}
+            {status !== "todo" && <button className="btn" onClick={() => onStatus("todo")}>Move back to list</button>}
             <button className="btn ghost danger" aria-label={`Delete ${m.title}`} onClick={() => setConfirming(true)}>Delete</button>
           </>
         )}

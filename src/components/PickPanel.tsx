@@ -1,5 +1,6 @@
 import { formatRuntime } from "../lib/filters";
-import { letterboxdUrl, posterUrl } from "../lib/tmdb";
+import { kindOf, KIND_LABELS } from "../lib/media";
+import { posterUrl, titleLinks } from "../lib/tmdb";
 import type { Movie } from "../lib/types";
 
 interface Props {
@@ -20,22 +21,22 @@ export function PickPanel({ pick, poolSize, onRoll, onWatched }: Props) {
           <>
             <div className="pick-title" key={pick.id}>{pick.title}</div>
             <div className="pick-meta">
-              {[pick.year, pick.rating != null && `★ ${pick.rating.toFixed(1)}`, formatRuntime(pick.runtime), [...pick.genres, ...pick.tags].join(", ")].filter(Boolean).join(" · ")}
+              {[kindOf(pick) !== "movie" && KIND_LABELS[kindOf(pick)], pick.year, pick.rating != null && `★ ${pick.rating.toFixed(1)}`, formatRuntime(pick.runtime) && formatRuntime(pick.runtime) + (pick.media_type === "tv" ? "/ep" : ""), [...pick.genres, ...pick.tags].join(", ")].filter(Boolean).join(" · ")}
             </div>
             {pick.overview && <p className="pick-overview">{pick.overview}</p>}
-            {pick.tmdb_id && <a className="ticket-link" href={letterboxdUrl(pick.tmdb_id)} target="_blank" rel="noreferrer">Open on Letterboxd</a>}
+            {titleLinks(pick)[0] && <a className="ticket-link" href={titleLinks(pick)[0].url} target="_blank" rel="noreferrer">Open on {titleLinks(pick)[0].label}</a>}
           </>
         ) : (
           <>
             <div className="pick-title">Can't decide?</div>
-            <div className="pick-meta">Set the filters below, then roll for a random movie from your list.</div>
+            <div className="pick-meta">Set the filters below, then roll for a random title from your list.</div>
           </>
         )}
       </div>
       <div className="stub">
-        <button className="btn" onClick={onRoll} disabled={!poolSize}>{pick ? "Pick another" : "Pick a movie"}</button>
+        <button className="btn" onClick={onRoll} disabled={!poolSize}>{pick ? "Pick another" : "Pick a title"}</button>
         {pick && <button className="btn alt" onClick={onWatched}>We watched it</button>}
-        <div className="count">{poolSize} {poolSize === 1 ? "movie matches" : "movies match"}</div>
+        <div className="count">{poolSize} {poolSize === 1 ? "title matches" : "titles match"}</div>
       </div>
     </section>
   );

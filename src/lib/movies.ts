@@ -9,15 +9,22 @@ const strArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x i
 // Every field gets a safe default rather than letting a malformed doc crash rendering, sorting or filtering.
 export function normalizeMovie(id: string, data: Record<string, unknown>, source: "movies" | "restricted"): Movie {
   const groupId = str(data.group_id);
+  const watched = data.watched === true;
   return {
     shared_with: source === "movies" ? "all" : groupId ? `group:${groupId}` : "me",
     owner: source === "movies" ? null : str(data.owner),
     id,
+    // Movies saved before TV shows and anime were supported have neither field.
+    media_type: data.media_type === "tv" ? "tv" : "movie",
+    anime: data.anime === true,
     tmdb_id: num(data.tmdb_id),
     imdb_id: str(data.imdb_id),
     title: str(data.title) || "Untitled",
     year: num(data.year),
     runtime: num(data.runtime),
+    seasons: num(data.seasons),
+    episodes: num(data.episodes),
+    series_status: str(data.series_status),
     genres: strArray(data.genres),
     rating: num(data.rating),
     vote_count: num(data.vote_count),
@@ -25,7 +32,8 @@ export function normalizeMovie(id: string, data: Record<string, unknown>, source
     overview: str(data.overview),
     note: str(data.note),
     added_by: str(data.added_by),
-    watched: data.watched === true,
+    watched,
+    watching: !watched && data.watching === true,
     watched_at: str(data.watched_at),
     created_at: str(data.created_at) ?? new Date(0).toISOString(),
     tags: strArray(data.tags),

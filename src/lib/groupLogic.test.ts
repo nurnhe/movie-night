@@ -21,6 +21,12 @@ describe("newMoviesOnly", () => {
     expect(newMoviesOnly(existing, incoming)).toEqual([m("Aftersun", 965150)]);
   });
 
+  it("keeps a TV show that shares a TMDB id with a movie already on the list", () => {
+    const existing = [{ title: "Some Movie", tmdb_id: 500 }];
+    expect(newMoviesOnly(existing, [{ title: "Some Show", tmdb_id: 500, media_type: "tv" as const }])).toHaveLength(1);
+    expect(newMoviesOnly(existing, [{ title: "Some Movie", tmdb_id: 500, media_type: "movie" as const }])).toHaveLength(0);
+  });
+
   it("drops duplicates within the incoming list", () => {
     expect(newMoviesOnly([], [m("Heat", 949), m("Heat", 949)])).toEqual([m("Heat", 949)]);
   });

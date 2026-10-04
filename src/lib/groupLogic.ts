@@ -14,9 +14,10 @@ export function applyMemberChanges(current: string[], added: string[], removed: 
   return [...new Set([...current.filter((e) => !gone.has(e)), ...added])];
 }
 
-type Keyed = Pick<Movie, "tmdb_id" | "title">;
+type Keyed = Pick<Movie, "tmdb_id" | "title"> & { media_type?: Movie["media_type"] };
 
-const movieKey = (m: Keyed) => (m.tmdb_id != null ? `tmdb:${m.tmdb_id}` : `title:${m.title.trim().toLowerCase()}`);
+// Titles saved before TV shows existed have no media type, and were all movies.
+const movieKey = (m: Keyed) => (m.tmdb_id != null ? `tmdb:${m.media_type ?? "movie"}:${m.tmdb_id}` : `title:${m.title.trim().toLowerCase()}`);
 
 export function newMoviesOnly<T extends Keyed>(existing: Keyed[], incoming: T[]): T[] {
   const seen = new Set(existing.map(movieKey));

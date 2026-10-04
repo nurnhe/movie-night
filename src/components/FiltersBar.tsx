@@ -1,4 +1,5 @@
 import { hasTag, toggleTag, type Filters } from "../lib/filters";
+import type { Kind } from "../lib/media";
 import type { Group } from "../lib/types";
 
 interface Props {
@@ -34,7 +35,7 @@ export function FiltersBar({ filters, onChange, tags, groups, onNewGroup, onEdit
     <section className="filters" aria-label="Filters">
       <div className="filter-row">
         <div className="field">
-          <label htmlFor="f-scope" className="label">Show</label>
+          <label htmlFor="f-scope" className="label">List</label>
           <select id="f-scope" value={filters.scope}
             onChange={(e) => (e.target.value === NEW_GROUP ? onNewGroup() : set({ scope: e.target.value }))}>
             <option value="">Everything</option>
@@ -51,6 +52,15 @@ export function FiltersBar({ filters, onChange, tags, groups, onNewGroup, onEdit
         {selectedGroup && (
           <button type="button" className="btn ghost small" onClick={() => onEditGroup(selectedGroup)}>Edit group</button>
         )}
+        <div className="field">
+          <label htmlFor="f-kind" className="label">Type</label>
+          <select id="f-kind" value={filters.kind} onChange={(e) => set({ kind: e.target.value as Kind | "" })}>
+            <option value="">All types</option>
+            <option value="movie">Movies</option>
+            <option value="tv">TV shows</option>
+            <option value="anime">Anime</option>
+          </select>
+        </div>
         <div className="field grow">
           <label htmlFor="f-search" className="label">Search</label>
           <input id="f-search" type="search" placeholder="Title or note" value={filters.search} onChange={(e) => set({ search: e.target.value })} />

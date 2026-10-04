@@ -1,3 +1,4 @@
+import { kindOf, type Kind } from "./media";
 import type { Movie } from "./types";
 
 export interface Filters {
@@ -6,9 +7,10 @@ export interface Filters {
   maxRuntime: number | null;
   minRating: number | null;
   scope: string; // "" everything, or a shared_with value: "all", "me", "group:<id>"
+  kind: Kind | ""; // "" every type
 }
 
-export const emptyFilters: Filters = { search: "", tags: [], maxRuntime: null, minRating: null, scope: "" };
+export const emptyFilters: Filters = { search: "", tags: [], maxRuntime: null, minRating: null, scope: "", kind: "" };
 
 // TMDB genres keep their capitals ("Comedy") and custom tags are stored lowercase ("comedy");
 // they're the same tag whenever they differ only by case.
@@ -27,6 +29,7 @@ export function matchesFilters(m: Movie, f: Filters): boolean {
   if (f.maxRuntime != null && (m.runtime == null || m.runtime > f.maxRuntime)) return false;
   if (f.minRating != null && (m.rating == null || m.rating < f.minRating)) return false;
   if (f.scope && m.shared_with !== f.scope) return false;
+  if (f.kind && kindOf(m) !== f.kind) return false;
   return true;
 }
 

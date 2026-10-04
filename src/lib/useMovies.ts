@@ -5,6 +5,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { firestoreMessage } from "./firestoreErrors";
+import { statusPatch, type Status } from "./media";
 import { normalizeMovie } from "./movies";
 import { collectionFor, groupIdOf, mergeMovieLists, storedFields } from "./sharing";
 import type { Movie, NewMovie } from "./types";
@@ -62,7 +63,7 @@ export function useMovies(enabled: boolean, me: string, groupIds: string[]) {
   };
 
   const add = (movie: NewMovie, sharedWith: string) => {
-    const fields = { ...movie, watched: false, watched_at: null, created_at: new Date().toISOString() };
+    const fields = { ...movie, ...statusPatch("todo", ""), created_at: new Date().toISOString() };
     return sharedWith === "all"
       ? run(addDoc(collection(db, "movies"), fields))
       : run(addDoc(collection(db, "restricted"), { ...fields, owner: me, group_id: groupIdOf(sharedWith) }));
@@ -70,8 +71,7 @@ export function useMovies(enabled: boolean, me: string, groupIds: string[]) {
 
   const update = (m: Movie, patch: Partial<Omit<Movie, "id" | "shared_with" | "owner">>) => run(updateDoc(refOf(m), patch));
 
-  const setWatched = (m: Movie, watched: boolean) =>
-    update(m, { watched, watched_at: watched ? new Date().toISOString() : null });
+  const setStatus = (m: Movie, status: Status) => update(m, statusPatch(status, new Date().toISOString()));
 
   const remove = (m: Movie) => run(deleteDoc(refOf(m)));
 
@@ -95,5 +95,5 @@ export function useMovies(enabled: boolean, me: string, groupIds: string[]) {
     return run(batch.commit());
   };
 
-  return { movies, loading, error, live, add, update, setWatched, remove, addTag, removeTag, rate, share, clearError: () => setError(null) };
+  return { movies, loading, error, live, add, update, setStatus, remove, addTag, removeTag, rate, share, clearError: () => setError(null) };
 }
