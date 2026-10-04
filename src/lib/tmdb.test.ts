@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { recommendations, searchTitles, titleDetails, titleLinks } from "./tmdb";
+import { recommendations, searchTitles, TMDB_NOTICE, TmdbError, titleDetails, titleLinks } from "./tmdb";
 
 // TMDB can't be called without a token here, so these replay the response shapes its docs describe.
 function respondWith(routes: Record<string, unknown>) {
@@ -87,6 +87,13 @@ describe("titleDetails", () => {
     respondWith({});
     await expect(titleDetails(404, "tv")).rejects.toThrow("TMDB request failed (404)");
   });
+
+  it("reports the HTTP status, so a title TMDB no longer has can be told apart from an outage", async () => {
+    respondWith({});
+    const err = await titleDetails(404, "movie").catch((e) => e);
+    expect(err).toBeInstanceOf(TmdbError);
+    expect(err.status).toBe(404);
+  });
 });
 
 describe("titleLinks", () => {
@@ -103,5 +110,13 @@ describe("titleLinks", () => {
   });
   it("has nothing to link for a title added by hand", () => {
     expect(titleLinks({ tmdb_id: null, imdb_id: null, media_type: "movie" })).toEqual([]);
+  });
+});
+
+describe("TMDB attribution", () => {
+  // Section 3 of TMDB's API terms makes this exact wording a condition of the licence.
+  it("uses the notice wording the terms require", () => {
+    const required = "This [website, program, service, application, product] uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.";
+    expect(TMDB_NOTICE).toBe(required.replace("[website, program, service, application, product]", "website"));
   });
 });

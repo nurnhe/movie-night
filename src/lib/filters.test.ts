@@ -6,7 +6,7 @@ const base: Movie = {
   id: "1", media_type: "movie", anime: false, tmdb_id: 1, imdb_id: null, title: "Paddington 2", year: 2017, runtime: 104,
   seasons: null, episodes: null, series_status: null, genres: ["Comedy", "Family"], tags: ["cozy"], ratings: {},
   rating: 7.6, vote_count: 3000, poster_path: null, overview: null, note: "cozy", added_by: "a@x.com",
-  watched: false, watching: false, watched_at: null, created_at: "2026-09-01T00:00:00Z", shared_with: "all", owner: null,
+  watched: false, watching: false, watched_at: null, created_at: "2026-09-01T00:00:00Z", tmdb_synced_at: null, shared_with: "all", owner: null,
 };
 const long: Movie = { ...base, id: "2", title: "Oppenheimer", runtime: 180, genres: ["Drama", "History"], tags: [], rating: 8.1, added_by: "b@x.com", note: null, created_at: "2026-09-02T00:00:00Z" };
 const bare: Movie = { ...base, id: "3", title: "Mystery pick", runtime: null, genres: [], tags: [], rating: null, created_at: "2026-09-03T00:00:00Z" };

@@ -26,11 +26,12 @@ export interface Movie {
   watching: boolean; // in progress; never true together with watched
   watched_at: string | null;
   created_at: string;
+  tmdb_synced_at: string | null; // when the TMDB-sourced fields were last fetched; TMDB data may only be kept 6 months
   shared_with: string; // "all", "me" (only the owner), or "group:<id>"
   owner: string | null; // lowercase email; set on movies not shared with everyone
 }
 
-export type NewMovie = Omit<Movie, "id" | "watched" | "watching" | "watched_at" | "created_at" | "ratings" | "shared_with" | "owner">;
+export type NewMovie = Omit<Movie, "id" | "watched" | "watching" | "watched_at" | "created_at" | "tmdb_synced_at" | "ratings" | "shared_with" | "owner">;
 
 export interface Group {
   id: string;

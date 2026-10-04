@@ -32,7 +32,13 @@ These Firebase values end up in the site's JavaScript. That's by design: access 
 ### 2. TMDB (movie details)
 Create a free account at [themoviedb.org](https://www.themoviedb.org/signup), request an API key under **Settings > API**, and copy the **API Read Access Token**.
 
-The token also ends up in the site's JavaScript. That's normal for TMDB's read-only access, but don't reuse a token you care about.
+The token also ends up in the site's JavaScript, so anyone who opens the site can read it. It only allows reading TMDB data, but use one you're happy to revoke and replace.
+
+#### Keeping within TMDB's terms
+The app follows [TMDB's API terms](https://www.themoviedb.org/api-terms-of-use). If you change it, keep these in place:
+- **Non-commercial only.** The free key doesn't allow charging for the app, showing ads, or otherwise earning from it.
+- **Attribution.** The footer shows TMDB's official logo (`public/tmdb-logo.svg`, unmodified, and smaller than the app's own title) and the exact notice the terms require. Don't reword the notice.
+- **Six-month limit.** TMDB doesn't allow keeping its data longer than six months, but titles are saved in Firestore. Each title records when its TMDB details were fetched (`tmdb_synced_at`). Whenever someone opens the app, it re-fetches up to 30 titles whose details are a month old or more (oldest first) and updates only the TMDB-supplied fields, never notes, tags, ratings or watched state. If TMDB no longer has a title and its details are 150 days old, they're cleared (the name and year stay). The refresh only runs when the app is opened, so if nobody opens it for months the saved copy can age past the limit until the next visit.
 
 ### 3. GitHub Pages
 1. In the repo, go to **Settings > Pages** and set **Source** to **GitHub Actions**.

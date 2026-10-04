@@ -63,7 +63,9 @@ export function useMovies(enabled: boolean, me: string, groupIds: string[]) {
   };
 
   const add = (movie: NewMovie, sharedWith: string) => {
-    const fields = { ...movie, ...statusPatch("todo", ""), created_at: new Date().toISOString() };
+    const now = new Date().toISOString();
+    // A title with a TMDB id has just had its details fetched; titles added by hand have none.
+    const fields = { ...movie, ...statusPatch("todo", ""), created_at: now, tmdb_synced_at: movie.tmdb_id != null ? now : null };
     return sharedWith === "all"
       ? run(addDoc(collection(db, "movies"), fields))
       : run(addDoc(collection(db, "restricted"), { ...fields, owner: me, group_id: groupIdOf(sharedWith) }));
@@ -74,6 +76,9 @@ export function useMovies(enabled: boolean, me: string, groupIds: string[]) {
   const setStatus = (m: Movie, status: Status) => update(m, statusPatch(status, new Date().toISOString()));
 
   const remove = (m: Movie) => run(deleteDoc(refOf(m)));
+
+  // Background upkeep of TMDB-sourced fields. Unlike the actions above it never raises the "didn't save" banner.
+  const syncFromTmdb = (m: Movie, patch: Record<string, unknown>) => updateDoc(refOf(m), patch);
 
   const addTag = (m: Movie, tag: string) => run(updateDoc(refOf(m), { tags: arrayUnion(tag) }));
   const removeTag = (m: Movie, tag: string) => run(updateDoc(refOf(m), { tags: arrayRemove(tag) }));
@@ -95,5 +100,5 @@ export function useMovies(enabled: boolean, me: string, groupIds: string[]) {
     return run(batch.commit());
   };
 
-  return { movies, loading, error, live, add, update, setStatus, remove, addTag, removeTag, rate, share, clearError: () => setError(null) };
+  return { movies, loading, error, live, add, update, setStatus, remove, syncFromTmdb, addTag, removeTag, rate, share, clearError: () => setError(null) };
 }

@@ -6,6 +6,7 @@ import { authMessage } from "./lib/authErrors";
 import { moveGroupMoviesToMainList, setMyName, useGroups, useMemberDirectory } from "./lib/groups";
 import type { Group, Movie, NewMovie } from "./lib/types";
 import { useMovies } from "./lib/useMovies";
+import { useTmdbRefresh } from "./lib/useTmdbRefresh";
 import { allTags, emptyFilters, matchesFilters, pickRandom, sortMovies, tagLabel, tagLabels, type Filters, type SortKey } from "./lib/filters";
 import { displayName } from "./lib/groupLogic";
 import { kindOf, statusOf, type Status } from "./lib/media";
@@ -17,6 +18,7 @@ import { GroupDialog } from "./components/GroupDialog";
 import { FiltersBar } from "./components/FiltersBar";
 import { MovieCard } from "./components/MovieCard";
 import { PickPanel } from "./components/PickPanel";
+import { TmdbCredit } from "./components/TmdbCredit";
 import { NameEditor } from "./components/NameEditor";
 
 export default function App() {
@@ -132,7 +134,7 @@ function Queue({ email }: { email: string }) {
   const { groups } = useGroups(me);
   const groupIds = useMemo(() => groups.map((g) => g.id), [groups]);
   const people = useMemberDirectory(access === "member");
-  const { movies, loading, error, live, add, setStatus, remove, addTag, removeTag, rate, share, clearError } = useMovies(access === "member", me, groupIds);
+  const { movies, loading, error, live, add, setStatus, remove, syncFromTmdb, addTag, removeTag, rate, share, clearError } = useMovies(access === "member", me, groupIds);
   const [lastShare, setLastShare] = useState(loadShare);
   const [filters, setFilters] = useState<Filters>(loadFilters);
   const [tab, setTab] = useState<Status>("todo");
@@ -143,6 +145,7 @@ function Queue({ email }: { email: string }) {
   const [rateNextId, setRateNextId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const movedGroupMovies = useRef(false);
+  useTmdbRefresh(access === "member" && !loading, movies, syncFromTmdb);
 
   useEffect(() => {
     getDoc(doc(db, "members", me)).then(
@@ -291,7 +294,7 @@ function Queue({ email }: { email: string }) {
         </div>
       </section>
 
-      <footer className="foot muted small">Movie details and ratings from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</footer>
+      <TmdbCredit />
 
       <datalist id="tag-suggestions">{tagSuggestions.map((t) => <option key={t} value={t} />)}</datalist>
 

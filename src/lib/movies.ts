@@ -36,6 +36,7 @@ export function normalizeMovie(id: string, data: Record<string, unknown>, source
     watching: !watched && data.watching === true,
     watched_at: str(data.watched_at),
     created_at: str(data.created_at) ?? new Date(0).toISOString(),
+    tmdb_synced_at: str(data.tmdb_synced_at),
     tags: strArray(data.tags),
     ratings: normalizeRatings(data.ratings),
   };

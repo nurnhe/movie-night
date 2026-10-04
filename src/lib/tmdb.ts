@@ -6,6 +6,15 @@ const token = import.meta.env.VITE_TMDB_TOKEN as string | undefined;
 
 export const tmdbConfigured = Boolean(token);
 
+// TMDB's API terms (section 3) require exactly this notice, with the product described as a website, app, etc.
+export const TMDB_NOTICE = "This website uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.";
+
+export class TmdbError extends Error {
+  constructor(readonly status: number) {
+    super(`TMDB request failed (${status})`);
+  }
+}
+
 export interface SearchResult {
   id: number;
   media_type: MediaType;
@@ -21,7 +30,7 @@ async function get<T>(path: string, params: Record<string, string> = {}): Promis
   const res = await fetch(`${API}${path}?${qs}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
   });
-  if (!res.ok) throw new Error(`TMDB request failed (${res.status})`);
+  if (!res.ok) throw new TmdbError(res.status);
   return res.json() as Promise<T>;
 }
 

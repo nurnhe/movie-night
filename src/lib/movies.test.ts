@@ -7,7 +7,7 @@ describe("normalizeMovie", () => {
       id: "m1", media_type: "movie", anime: false, tmdb_id: null, imdb_id: null, title: "Untitled", year: null,
       runtime: null, seasons: null, episodes: null, series_status: null, genres: [],
       rating: null, vote_count: null, poster_path: null, overview: null, note: null, added_by: null,
-      watched: false, watching: false, watched_at: null, created_at: new Date(0).toISOString(), tags: [], ratings: {},
+      watched: false, watching: false, watched_at: null, created_at: new Date(0).toISOString(), tmdb_synced_at: null, tags: [], ratings: {},
       shared_with: "all", owner: null,
     });
   });
