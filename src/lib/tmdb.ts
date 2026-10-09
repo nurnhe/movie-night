@@ -1,3 +1,4 @@
+import { parseAvailability } from "./availability";
 import { isAnime, normalizeGenres } from "./media";
 import type { MediaType, Movie, NewMovie } from "./types";
 
@@ -146,7 +147,12 @@ async function tvDetails(id: number): Promise<TitleDetails> {
   };
 }
 
-export const posterUrl = (path: string | null, size: "w92" | "w185" | "w342" = "w185") =>
+// Where a title streams, per country. TMDB gets this from JustWatch, which the terms require us to credit.
+export async function watchProviders(id: number, mediaType: MediaType) {
+  return parseAvailability(await get<Parameters<typeof parseAvailability>[0]>(`/${mediaType}/${id}/watch/providers`));
+}
+
+export const posterUrl =(path: string | null, size: "w92" | "w185" | "w342" = "w185") =>
   path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 
 export const letterboxdUrl = (tmdbId: number) => `https://letterboxd.com/tmdb/${tmdbId}/`;

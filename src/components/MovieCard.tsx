@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { SERVICE_LABELS, REGION, type Availability } from "../lib/availability";
 import { formatRuntime, MAX_TAG_LENGTH, MAX_TAGS, normalizeTag } from "../lib/filters";
 import { kindOf, KIND_LABELS, seriesSize, seriesStatusLabel, statusOf, type Status } from "../lib/media";
 import { posterUrl, titleLinks } from "../lib/tmdb";
@@ -20,9 +21,10 @@ interface Props {
   onShare: (sharedWith: string) => void;
   labelFor: (tag: string) => string;
   nameFor: (email: string | null) => string;
+  streaming?: Availability;
 }
 
-export function MovieCard({ movie: m, highlighted, onStatus, onDelete, onAddTag, onRemoveTag, me, onRate, groups, onShare, labelFor, nameFor }: Props) {
+export function MovieCard({ movie: m, highlighted, onStatus, onDelete, onAddTag, onRemoveTag, me, onRate, groups, onShare, labelFor, nameFor, streaming }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [tagging, setTagging] = useState(false);
   const [draft, setDraft] = useState("");
@@ -76,6 +78,12 @@ export function MovieCard({ movie: m, highlighted, onStatus, onDelete, onAddTag,
           ) : m.tags.length < MAX_TAGS && (
             <button type="button" className="tag-add" aria-label={`Add a tag to ${m.title}`} onClick={() => setTagging(true)}>+ Tag</button>
           )}
+          {streaming?.services.map((s) => (
+            <a key={s} className="pill stream" href={streaming.link ?? undefined} target="_blank" rel="noreferrer"
+              title={`Included with a ${SERVICE_LABELS[s]} subscription in Serbia (${REGION}), per JustWatch via TMDB`}>
+              On {SERVICE_LABELS[s]}
+            </a>
+          ))}
           {m.watched && m.watched_at && <span className="pill good">Watched {new Date(m.watched_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>}
         </div>
         {m.watched && (

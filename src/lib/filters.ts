@@ -1,3 +1,4 @@
+import { matchesStreaming, type Service, type StreamingFilter } from "./availability";
 import { kindOf, type Kind } from "./media";
 import type { Movie } from "./types";
 
@@ -8,9 +9,10 @@ export interface Filters {
   minRating: number | null;
   scope: string; // "" everything, or a shared_with value: "all", "me", "group:<id>"
   kind: Kind | ""; // "" every type
+  streaming: StreamingFilter; // "" anywhere, or only titles on a streaming service in Serbia
 }
 
-export const emptyFilters: Filters = { search: "", tags: [], maxRuntime: null, minRating: null, scope: "", kind: "" };
+export const emptyFilters: Filters = { search: "", tags: [], maxRuntime: null, minRating: null, scope: "", kind: "", streaming: "" };
 
 // TMDB genres keep their capitals ("Comedy") and custom tags are stored lowercase ("comedy");
 // they're the same tag whenever they differ only by case.
@@ -22,7 +24,8 @@ export function toggleTag(selected: string[], tag: string): string[] {
   return hasTag(selected, tag) ? selected.filter((t) => tagKey(t) !== tagKey(tag)) : [...selected, tag];
 }
 
-export function matchesFilters(m: Movie, f: Filters): boolean {
+// `servicesOf` says where a title streams; it is only needed when the streaming filter is on.
+export function matchesFilters(m: Movie, f: Filters, servicesOf?: (m: Movie) => Service[] | undefined): boolean {
   const q = f.search.trim().toLowerCase();
   if (q && !m.title.toLowerCase().includes(q) && !(m.note ?? "").toLowerCase().includes(q) && !m.tags.some((t) => t.includes(q))) return false;
   if (f.tags.length && ![...m.genres, ...m.tags].some((t) => hasTag(f.tags, t))) return false;
@@ -30,6 +33,7 @@ export function matchesFilters(m: Movie, f: Filters): boolean {
   if (f.minRating != null && (m.rating == null || m.rating < f.minRating)) return false;
   if (f.scope && m.shared_with !== f.scope) return false;
   if (f.kind && kindOf(m) !== f.kind) return false;
+  if (!matchesStreaming(f.streaming, servicesOf?.(m))) return false;
   return true;
 }
 

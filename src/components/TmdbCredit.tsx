@@ -9,6 +9,7 @@ export function TmdbCredit() {
       </a>
       <p>{TMDB_NOTICE}</p>
       <p className="muted small">Details, ratings and images for movies, TV shows and anime come from TMDB.</p>
+      <p className="muted small">Where to watch (Netflix and HBO Max in Serbia) is provided by <a href="https://www.justwatch.com" target="_blank" rel="noreferrer">JustWatch</a>.</p>
     </footer>
   );
 }

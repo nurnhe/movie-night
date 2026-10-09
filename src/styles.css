@@ -130,6 +130,8 @@ input[type=text], input[type=search], input[type=email], input[type=password], s
 .pill { background: var(--surface-2); border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .pill.good { background: var(--good-soft); color: var(--good); }
 .pill.share { background: var(--accent-soft); color: var(--ink); }
+.pill.stream { background: var(--good-soft); color: var(--good); text-decoration: none; }
+.pill.stream:hover { text-decoration: underline; }
 .pill.kind { background: transparent; box-shadow: inset 0 0 0 1px var(--accent); color: var(--ink); }
 .actions select.share-select { width: auto; padding: 6px 8px; font-size: 13px; }
 .share-row { display: flex; align-items: center; gap: 10px; }

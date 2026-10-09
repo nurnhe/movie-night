@@ -1,4 +1,5 @@
 import { hasTag, toggleTag, type Filters } from "../lib/filters";
+import { SERVICE_LABELS, type StreamingFilter } from "../lib/availability";
 import type { Kind } from "../lib/media";
 import type { Group } from "../lib/types";
 
@@ -59,6 +60,15 @@ export function FiltersBar({ filters, onChange, tags, groups, onNewGroup, onEdit
             <option value="movie">Movies</option>
             <option value="tv">TV shows</option>
             <option value="anime">Anime</option>
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="f-stream" className="label">Streaming in Serbia</label>
+          <select id="f-stream" value={filters.streaming} onChange={(e) => set({ streaming: e.target.value as StreamingFilter })}>
+            <option value="">Anywhere</option>
+            <option value="any">Netflix or HBO Max</option>
+            <option value="netflix">{SERVICE_LABELS.netflix}</option>
+            <option value="hbo">{SERVICE_LABELS.hbo}</option>
           </select>
         </div>
         <div className="field grow">

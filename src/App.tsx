@@ -7,6 +7,8 @@ import { moveGroupMoviesToMainList, setMyName, useGroups, useMemberDirectory } f
 import type { Group, Movie, NewMovie } from "./lib/types";
 import { useMovies } from "./lib/useMovies";
 import { useTmdbRefresh } from "./lib/useTmdbRefresh";
+import { useAvailability } from "./lib/useAvailability";
+import { availabilityKey } from "./lib/availability";
 import { allTags, emptyFilters, matchesFilters, pickRandom, sortMovies, tagLabel, tagLabels, type Filters, type SortKey } from "./lib/filters";
 import { displayName } from "./lib/groupLogic";
 import { kindOf, statusOf, type Status } from "./lib/media";
@@ -146,6 +148,9 @@ function Queue({ email }: { email: string }) {
   const [dialog, setDialog] = useState<DialogState>(null);
   const movedGroupMovies = useRef(false);
   useTmdbRefresh(access === "member" && !loading, movies, syncFromTmdb);
+  const availability = useAvailability(access === "member" && !loading, movies);
+  // Only unwatched titles are looked up, so a watched one never counts as streaming.
+  const servicesOf = (m: Movie) => { const k = availabilityKey(m); return k && !m.watched ? availability[k]?.services : undefined; };
 
   useEffect(() => {
     getDoc(doc(db, "members", me)).then(
@@ -180,15 +185,17 @@ function Queue({ email }: { email: string }) {
   // Suggest genres too, so typing "com" offers the existing "Comedy" rather than a new spelling.
   const tagSuggestions = useMemo(() => allTags(movies), [movies]);
   // What to roll from: things nobody has started yet.
-  const pool = useMemo(() => movies.filter((m) => statusOf(m) === "todo" && matchesFilters(m, active)), [movies, active]);
+  const pool = useMemo(() => movies.filter((m) => statusOf(m) === "todo" && matchesFilters(m, active, servicesOf)), [movies, active, availability]);
   // The list and type choose which titles the tabs count; the other filters narrow what a tab shows.
   const inScope = movies.filter((m) => (!scope || m.shared_with === scope) && (!filters.kind || kindOf(m) === filters.kind));
   const byStatus = (s: Status) => inScope.filter((m) => statusOf(m) === s);
   const todo = byStatus("todo");
   const watching = byStatus("watching");
   const done = byStatus("done");
-  const shown = sortMovies(byStatus(tab).filter((m) => matchesFilters(m, active)), sort);
+  const shown = sortMovies(byStatus(tab).filter((m) => matchesFilters(m, active, servicesOf)), sort);
   const pick = movies.find((m) => m.id === pickId && statusOf(m) === "todo") ?? null;
+
+  const availabilityFor = (m: Movie) => { const k = availabilityKey(m); return k && !m.watched ? availability[k] : undefined; };
 
   const signOut = () => firebaseSignOut(auth);
   const safe = (p: Promise<unknown>) => p.catch(() => { /* surfaced through error */ });
@@ -276,7 +283,7 @@ function Queue({ email }: { email: string }) {
                 me={me} onRate={(stars) => safe(rate(m, stars))}
                 onAddTag={(t) => safe(addTag(m, t))} onRemoveTag={(t) => safe(removeTag(m, t))}
                 groups={groups} onShare={(sharedWith) => safe(share(m, sharedWith))} labelFor={(t) => tagLabel(labels, t)}
-                nameFor={(e) => displayName(e, people)} />
+                nameFor={(e) => displayName(e, people)} streaming={availabilityFor(m)} />
             ))
           ) : (
             <div className="empty">
@@ -287,7 +294,7 @@ function Queue({ email }: { email: string }) {
                 if (tab === "done" && !done.length) return <><strong>Nothing watched yet</strong>Mark a title as watched and it moves here.</>;
                 if (tab === "watching" && !watching.length) return <><strong>Nothing in progress</strong>Start watching a title and it shows up here.</>;
                 if (tab === "todo" && !todo.length) return <><strong>Nothing left to watch</strong>Add another title, or check the Watching and Watched tabs.</>;
-                return <><strong>No titles match these filters</strong>Try another list or type, a longer length or fewer tags. {clear}</>;
+                return <><strong>No titles match these filters</strong>Try another list, type or streaming service, a longer length or fewer tags. {clear}</>;
               })()}
             </div>
           )}

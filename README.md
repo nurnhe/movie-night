@@ -6,6 +6,8 @@ TMDB has no anime category, so anything that is Japanese-language animation (ser
 
 When you add a title, **Share with** decides who sees it: **Everyone**, **Only me**, or one of your **groups**. Whoever added a movie can change that later from its card, and ratings and tags come along. The **List** filter narrows the list to everything you can see, titles shared with everyone, your private ones, or one group's. Anyone can create a group from the filter menu and pick people from everyone on the `members` list; any member can rename it, add or remove people, or leave (the last member can delete it). Movies shared with everyone live in the `movies` collection; private and group ones in `restricted`, where the rules only let the owner or that group's members see them.
 
+Unwatched titles also show **On Netflix** / **On HBO Max** badges when they're included with a subscription in Serbia, and the **Streaming in Serbia** filter narrows the list to them. Availability comes from TMDB's watch-provider data (supplied by JustWatch), is looked up when the app opens, and is kept for a day in each person's browser only, never in the shared database. To use another country, change `REGION` in `src/lib/availability.ts`.
+
 - **Frontend:** React + Vite, deployed to GitHub Pages
 - **Shared list and sign-in:** Firebase (Cloud Firestore, email sign-in links, live updates), free Spark plan
 - **Movie data:** [TMDB](https://www.themoviedb.org/) API. Letterboxd has no public API, so each movie links to its Letterboxd page instead (Letterboxd uses TMDB ids too).
@@ -38,6 +40,7 @@ The token also ends up in the site's JavaScript, so anyone who opens the site ca
 The app follows [TMDB's API terms](https://www.themoviedb.org/api-terms-of-use). If you change it, keep these in place:
 - **Non-commercial only.** The free key doesn't allow charging for the app, showing ads, or otherwise earning from it.
 - **Attribution.** The footer shows TMDB's official logo (`public/tmdb-logo.svg`, unmodified, and smaller than the app's own title) and the exact notice the terms require. Don't reword the notice.
+- **JustWatch credit.** TMDB's watch-provider data must be credited to JustWatch, so the footer says so. Keep that line while the availability badges exist.
 - **Six-month limit.** TMDB doesn't allow keeping its data longer than six months, but titles are saved in Firestore. Each title records when its TMDB details were fetched (`tmdb_synced_at`). Whenever someone opens the app, it re-fetches up to 30 titles whose details are a month old or more (oldest first) and updates only the TMDB-supplied fields, never notes, tags, ratings or watched state. If TMDB no longer has a title and its details are 150 days old, they're cleared (the name and year stay). The refresh only runs when the app is opened, so if nobody opens it for months the saved copy can age past the limit until the next visit.
 
 ### 3. GitHub Pages
