@@ -145,9 +145,10 @@ input[type=text], input[type=search], input[type=email], input[type=password], s
 .star { position: relative; display: inline-block; width: 26px; font-size: 26px; line-height: 1; text-align: center; }
 .star-bg { color: color-mix(in srgb, var(--muted) 45%, transparent); }
 .star-fg { position: absolute; left: 0; top: 0; overflow: hidden; white-space: nowrap; color: var(--gold); pointer-events: none; }
-.star-hit { position: absolute; top: 0; bottom: 0; width: 50%; padding: 0; border: 0; background: none; cursor: pointer; }
+.star-hit { touch-action: manipulation; -webkit-tap-highlight-color: transparent; position: absolute; top: 0; bottom: 0; width: 50%; padding: 0; border: 0; background: none; cursor: pointer; }
 .star-hit.left { left: 0; }
 .star-hit.right { right: 0; }
+@media (pointer: coarse) { .star { width: 34px; font-size: 34px; } }
 /* Pinned to the bottom so it's seen even when "Mark watched" was clicked far down the list. */
 .rate-prompt { position: fixed; z-index: 10; left: 50%; bottom: 16px; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px);
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--surface); border: 1px solid var(--accent); box-shadow: var(--shadow); }
