@@ -139,6 +139,8 @@ input[type=text], input[type=search], input[type=email], input[type=password], s
 .dialog-actions select.manual-kind { width: auto; }
 .note { font-size: 13px; margin: 6px 0 0; overflow-wrap: anywhere; }
 .ratings { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 6px; }
+.avg { font-size: 14px; font-weight: 600; }
+.avg-score { color: var(--gold); }
 .stars { display: inline-flex; }
 .star { position: relative; display: inline-block; width: 26px; font-size: 26px; line-height: 1; text-align: center; }
 .star-bg { color: color-mix(in srgb, var(--muted) 45%, transparent); }

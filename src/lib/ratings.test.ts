@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { titleKey } from "./media";
-import { formatStars, isStars, normalizeRatings, pickSources, rankSuggestions } from "./ratings";
+import { averageRating, formatStars, isStars, normalizeRatings, pickSources, rankSuggestions } from "./ratings";
 import type { MediaType } from "./types";
 
 const r = (id: number, rating: number | null = 7, media_type: MediaType = "movie") =>
@@ -100,5 +100,19 @@ describe("half-star ratings in suggestions", () => {
       { media_type: "movie" as const, tmdb_id: 2, title: "B", stars: 4.5, results: [r(11)] },
     ], new Set());
     expect(ranked.map((s) => s.id)).toEqual([11, 10]);
+  });
+});
+
+describe("averageRating", () => {
+  it("is the mean of everyone's rating, e.g. 5 and 4 make 4.5", () => {
+    expect(averageRating({ "a@x.io": 5, "b@x.io": 4 })).toEqual({ average: 4.5, count: 2 });
+  });
+  it("rounds to one decimal", () => {
+    expect(averageRating({ a: 5, b: 4, c: 4 })).toEqual({ average: 4.3, count: 3 });
+    expect(averageRating({ a: 3.5, b: 4, c: 5 })).toEqual({ average: 4.2, count: 3 });
+  });
+  it("shows nothing until two people have rated", () => {
+    expect(averageRating({})).toBeNull();
+    expect(averageRating({ a: 5 })).toBeNull();
   });
 });

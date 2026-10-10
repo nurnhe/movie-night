@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { formatStars } from "../lib/ratings";
+import { averageRating, formatStars } from "../lib/ratings";
 import { SERVICE_LABELS, REGION, type Availability } from "../lib/availability";
 import { formatRuntime, MAX_TAG_LENGTH, MAX_TAGS, normalizeTag } from "../lib/filters";
 import { kindOf, KIND_LABELS, seriesSize, seriesStatusLabel, statusOf, type Status } from "../lib/media";
@@ -49,6 +49,7 @@ export function MovieCard({ movie: m, highlighted, onStatus, onDelete, onAddTag,
   const size = isShow ? seriesSize(m.seasons, m.episodes) : "";
   const genreKeys = m.genres.map((g) => g.toLowerCase());
   const customTags = m.tags.filter((t) => !genreKeys.includes(t.toLowerCase()));
+  const combined = averageRating(m.ratings);
   const othersRatings = Object.entries(m.ratings).filter(([email]) => email !== me).sort(([a], [b]) => a.localeCompare(b));
   return (
     <article className={"movie" + (highlighted ? " highlight" : "")}>
@@ -91,6 +92,11 @@ export function MovieCard({ movie: m, highlighted, onStatus, onDelete, onAddTag,
           <div className="ratings">
             <span className="muted small">Your rating</span>
             <StarRating value={m.ratings[me] ?? null} onChange={onRate} label={`Your rating for ${m.title}`} />
+            {combined && (
+              <span className="avg" title={`Average of ${combined.count} ratings`}>
+                Average <span className="avg-score">★ {formatStars(combined.average)}</span> <span className="muted small">from {combined.count}</span>
+              </span>
+            )}
             {othersRatings.length > 0 && (
               <span className="muted small">{othersRatings.map(([email, stars]) => `${nameFor(email)} ★ ${formatStars(stars)}`).join(" · ")}</span>
             )}
