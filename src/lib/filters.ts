@@ -1,5 +1,6 @@
 import { matchesStreaming, type Service, type StreamingFilter } from "./availability";
 import { kindOf, type Kind } from "./media";
+import { ratingSummary } from "./ratings";
 import type { Movie } from "./types";
 
 export interface Filters {
@@ -76,7 +77,7 @@ export function formatRuntime(min: number | null): string {
   return h ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
 }
 
-export type SortKey = "added" | "title" | "runtime" | "rating" | "year";
+export type SortKey = "added" | "title" | "runtime" | "rating" | "ours" | "year";
 
 export function sortMovies(list: Movie[], key: SortKey): Movie[] {
   const out = [...list];
@@ -85,6 +86,11 @@ export function sortMovies(list: Movie[], key: SortKey): Movie[] {
     case "title": return out.sort((a, b) => a.title.localeCompare(b.title));
     case "runtime": return out.sort((a, b) => num(a.runtime, Infinity) - num(b.runtime, Infinity));
     case "rating": return out.sort((a, b) => num(b.rating, -1) - num(a.rating, -1));
+    case "ours": {
+      // Our own ratings' mean, highest first; more ratings win a tie, and titles nobody has rated go last.
+      const score = (m: Movie) => ratingSummary(m.ratings);
+      return out.sort((a, b) => (score(b)?.mean ?? -1) - (score(a)?.mean ?? -1) || (score(b)?.count ?? 0) - (score(a)?.count ?? 0) || a.title.localeCompare(b.title));
+    }
     case "year": return out.sort((a, b) => num(b.year, -1) - num(a.year, -1));
     default: return out.sort((a, b) => (a.watched ? (b.watched_at ?? "").localeCompare(a.watched_at ?? "") : b.created_at.localeCompare(a.created_at)));
   }

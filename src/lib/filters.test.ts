@@ -73,6 +73,13 @@ describe("helpers", () => {
   it("sorts by rating with unrated last", () => {
     expect(sortMovies([bare, base, long], "rating").map((m) => m.id)).toEqual(["2", "1", "3"]);
   });
+  it("sorts by our own ratings: highest mean first, more ratings win a tie, unrated last", () => {
+    const a = { ...base, id: "a", title: "A", ratings: { "x@x.io": 5, "y@x.io": 4 } };      // 4.5
+    const b = { ...base, id: "b", title: "B", ratings: { "x@x.io": 4.5 } };                // 4.5 from one
+    const c = { ...base, id: "c", title: "C", ratings: { "x@x.io": 5 } };                  // 5
+    const d = { ...base, id: "d", title: "D", ratings: {} };
+    expect(sortMovies([d, b, a, c], "ours").map((m) => m.id)).toEqual(["c", "a", "b", "d"]);
+  });
   it("sorts newest added first by default", () => {
     expect(sortMovies([base, long, bare], "added").map((m) => m.id)).toEqual(["3", "2", "1"]);
   });

@@ -8,12 +8,18 @@ export const MAX_STARS = 5;
 export const isStars = (x: unknown): x is number => typeof x === "number" && x >= 0.5 && x <= MAX_STARS && Number.isInteger(x * 2);
 export const formatStars = (stars: number) => String(stars);
 
-// The group's score: the mean of everyone's rating, to one decimal. Needs two people, since one rating is just that person's own.
-export function averageRating(ratings: Record<string, number>): { average: number; count: number } | null {
+// Everyone's valid ratings on a title: how many, and their exact mean.
+export function ratingSummary(ratings: Record<string, number>): { mean: number; count: number } | null {
   const values = Object.values(ratings).filter(isStars);
-  if (values.length < 2) return null;
-  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-  return { average: Math.round(mean * 10) / 10, count: values.length };
+  if (!values.length) return null;
+  return { mean: values.reduce((sum, v) => sum + v, 0) / values.length, count: values.length };
+}
+
+// The group's score shown on a card: the mean to one decimal. Needs two people, since one rating is just that person's own.
+export function averageRating(ratings: Record<string, number>): { average: number; count: number } | null {
+  const summary = ratingSummary(ratings);
+  if (!summary || summary.count < 2) return null;
+  return { average: Math.round(summary.mean * 10) / 10, count: summary.count };
 }
 
 export function normalizeRatings(raw: unknown): Record<string, number> {

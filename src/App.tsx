@@ -263,7 +263,8 @@ function Queue({ email }: { email: string }) {
           <div className="listhead-right">
             <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
               <option value="added">{tab === "done" ? "Recently watched" : "Recently added"}</option>
-              <option value="rating">Highest rated</option>
+              <option value="rating">Highest rated (TMDB)</option>
+              <option value="ours">Highest rated by us</option>
               <option value="runtime">Shortest first</option>
               <option value="year">Newest release</option>
               <option value="title">Title A–Z</option>
