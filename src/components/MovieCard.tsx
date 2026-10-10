@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { formatStars } from "../lib/ratings";
 import { SERVICE_LABELS, REGION, type Availability } from "../lib/availability";
 import { formatRuntime, MAX_TAG_LENGTH, MAX_TAGS, normalizeTag } from "../lib/filters";
 import { kindOf, KIND_LABELS, seriesSize, seriesStatusLabel, statusOf, type Status } from "../lib/media";
@@ -91,7 +92,7 @@ export function MovieCard({ movie: m, highlighted, onStatus, onDelete, onAddTag,
             <span className="muted small">Your rating</span>
             <StarRating value={m.ratings[me] ?? null} onChange={onRate} label={`Your rating for ${m.title}`} />
             {othersRatings.length > 0 && (
-              <span className="muted small">{othersRatings.map(([email, stars]) => `${nameFor(email)} ${"★".repeat(stars)}`).join(" · ")}</span>
+              <span className="muted small">{othersRatings.map(([email, stars]) => `${nameFor(email)} ★ ${formatStars(stars)}`).join(" · ")}</span>
             )}
           </div>
         )}

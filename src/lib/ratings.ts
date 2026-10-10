@@ -4,11 +4,15 @@ import type { MediaType, Movie } from "./types";
 
 export const MAX_STARS = 5;
 
+// Ratings go in half-star steps: 0.5, 1, 1.5 ... 5.
+export const isStars = (x: unknown): x is number => typeof x === "number" && x >= 0.5 && x <= MAX_STARS && Number.isInteger(x * 2);
+export const formatStars = (stars: number) => String(stars);
+
 export function normalizeRatings(raw: unknown): Record<string, number> {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const out: Record<string, number> = {};
   for (const [email, stars] of Object.entries(raw)) {
-    if (Number.isInteger(stars) && (stars as number) >= 1 && (stars as number) <= MAX_STARS) out[email] = stars as number;
+    if (isStars(stars)) out[email] = stars;
   }
   return out;
 }

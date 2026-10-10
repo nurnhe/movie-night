@@ -1,14 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { titleKey } from "./media";
-import { normalizeRatings, pickSources, rankSuggestions } from "./ratings";
+import { formatStars, isStars, normalizeRatings, pickSources, rankSuggestions } from "./ratings";
 import type { MediaType } from "./types";
 
 const r = (id: number, rating: number | null = 7, media_type: MediaType = "movie") =>
   ({ id, media_type, anime: false, title: `Title ${id}`, year: 2020, poster_path: null, rating });
 
 describe("normalizeRatings", () => {
-  it("keeps whole-star ratings from 1 to 5 and drops everything else", () => {
-    expect(normalizeRatings({ "a@x.io": 5, "b@x.io": 0, "c@x.io": 3.5, "d@x.io": "4", "e@x.io": 1 })).toEqual({ "a@x.io": 5, "e@x.io": 1 });
+  it("keeps whole and half-star ratings from 0.5 to 5 and drops everything else", () => {
+    expect(normalizeRatings({ "a@x.io": 5, "b@x.io": 0, "c@x.io": 3.5, "d@x.io": "4", "e@x.io": 1, "f@x.io": 0.5, "g@x.io": 4.2, "h@x.io": 5.5, "i@x.io": NaN }))
+      .toEqual({ "a@x.io": 5, "c@x.io": 3.5, "e@x.io": 1, "f@x.io": 0.5 });
+  });
+  it("recognises exactly the half-star steps", () => {
+    expect([0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5].every(isStars)).toBe(true);
+    expect([0, 0.25, 4.7, 5.5, -1, "4", null].some(isStars)).toBe(false);
+    expect(formatStars(4.5)).toBe("4.5");
+    expect(formatStars(4)).toBe("4");
   });
   it("treats missing or malformed values as no ratings", () => {
     expect(normalizeRatings(undefined)).toEqual({});
@@ -78,5 +85,20 @@ describe("rankSuggestions", () => {
     expect(rankSuggestions(sources, new Set()).map((s) => titleKey(s.media_type, s.id)).sort()).toEqual(["movie:500", "tv:500"]);
     // Already having the movie doesn't hide the show.
     expect(rankSuggestions(sources, new Set([titleKey("movie", 500)])).map((s) => s.media_type)).toEqual(["tv"]);
+  });
+});
+
+describe("half-star ratings in suggestions", () => {
+  const rated = (id: number, stars: number) => ({ media_type: "movie" as const, tmdb_id: id, title: `T${id}`, ratings: { "me@x.io": stars }, watched_at: "2026-01-01" });
+  it("counts 4.5 as a favourite and 1.5 as a dislike, but not 3.5 or 2.5", () => {
+    const picked = pickSources([rated(1, 4.5), rated(2, 3.5), rated(3, 2.5), rated(4, 1.5)], "me@x.io");
+    expect(picked.map((p) => p.tmdb_id)).toEqual([1, 4]);
+  });
+  it("weighs 4.5 stars above 4", () => {
+    const ranked = rankSuggestions([
+      { media_type: "movie" as const, tmdb_id: 1, title: "A", stars: 4, results: [r(10)] },
+      { media_type: "movie" as const, tmdb_id: 2, title: "B", stars: 4.5, results: [r(11)] },
+    ], new Set());
+    expect(ranked.map((s) => s.id)).toEqual([11, 10]);
   });
 });

@@ -15,7 +15,7 @@ export interface Movie {
   series_status: string | null; // TMDB's status for a TV show, e.g. "Ended"
   genres: string[]; // from TMDB
   tags: string[];   // added by people, lowercase
-  ratings: Record<string, number>; // 1-5 stars by lowercase email, after watching
+  ratings: Record<string, number>; // 0.5-5 stars (half steps) by lowercase email, after watching
   rating: number | null;
   vote_count: number | null;
   poster_path: string | null;

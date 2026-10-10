@@ -18,7 +18,8 @@ service cloud.firestore {
     }
 
     function validOwnRating(ratings) {
-      return !(me() in ratings) || (ratings[me()] is int && ratings[me()] >= 1 && ratings[me()] <= 5);
+      // Half-star steps. Whole numbers are stored as ints and halves as floats, so the list matches by type too.
+      return !(me() in ratings) || ratings[me()] in [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
     }
 
     function inGroup(groupId) {
