@@ -8,9 +8,23 @@ When you add a title, **Share with** decides who sees it: **Everyone**, **Only m
 
 Unwatched titles also show **On Netflix** / **On HBO Max** badges when they're included with a subscription in Serbia, and the **Streaming in Serbia** filter narrows the list to them. Availability comes from TMDB's watch-provider data (supplied by JustWatch), is looked up when the app opens, and is kept for a day in each person's browser only, never in the shared database. To use another country, change `REGION` in `src/lib/availability.ts`.
 
-- **Frontend:** React + Vite, deployed to GitHub Pages
+- **Frontend:** React + Vite, deployed to GitHub Pages as an installable web app (manifest, icons and service worker in `public/`)
 - **Shared list and sign-in:** Firebase (Cloud Firestore, email sign-in links, live updates), free Spark plan
 - **Movie data:** [TMDB](https://www.themoviedb.org/) API. Letterboxd has no public API, so each movie links to its Letterboxd page instead (Letterboxd uses TMDB ids too).
+
+## Installing it on a phone
+
+The site is an installable web app, so everyone on the `members` list can put it on their home screen and open it full screen like any other app. Nothing goes through an app store, and updates arrive whenever you push to `main`.
+
+- **Android (Chrome, Edge, Samsung Internet):** open the site, sign in, and tap **Install app** at the top (or **Add to Home screen** / **Install app** in the browser menu).
+- **iPhone and iPad:** open the site in Safari (or Chrome on iOS 16.4+), tap **Share**, then **Add to Home Screen**. The **Install app** button shows these steps too.
+
+Things to know:
+- On iPhone the home-screen app keeps its own sign-in, separate from Safari, so sign in again inside it. Use the **password**: an emailed sign-in link opens in Safari rather than in the installed app.
+- The app's own files are cached on the phone, so it opens without a connection, but the list itself needs one. Firebase and TMDB requests are never cached by the app.
+- Who sees each title works the same as on the website: **Only me** titles show up only for you, on any of your devices, and **Everyone** titles for all members. The Firestore rules enforce this, not just the app.
+
+If you change anything in `public/sw.js`, bump `CACHE` at its top so phones drop the old copy.
 
 ## Setup
 
