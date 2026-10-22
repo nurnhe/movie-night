@@ -22,6 +22,7 @@ import { MovieCard } from "./components/MovieCard";
 import { PickPanel } from "./components/PickPanel";
 import { TmdbCredit } from "./components/TmdbCredit";
 import { NameEditor } from "./components/NameEditor";
+import { InstallApp } from "./components/InstallApp";
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -229,6 +230,7 @@ function Queue({ email }: { email: string }) {
         <div className="top-right">
           <NameEditor me={me} people={people} onSave={(name) => setMyName(me, name)} />
           <span className="sync"><span className={"dot" + (live ? " live" : "")} />{live ? "Synced" : "Connecting…"}</span>
+          <InstallApp />
           <button className="btn ghost small" onClick={signOut}>Sign out</button>
         </div>
       </header>
