@@ -8,7 +8,7 @@
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #12131B; --surface: #1B1D29; --surface-2: #222534; --ink: #ECEDF3; --muted: #9FA4B8;
     --line: #2F3244; --accent: #B28BE3; --accent-ink: #17121F; --accent-soft: #2C2340;
@@ -17,6 +17,18 @@
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
   }
 }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #12131B; --surface: #1B1D29; --surface-2: #222534; --ink: #ECEDF3; --muted: #9FA4B8;
+  --line: #2F3244; --accent: #B28BE3; --accent-ink: #17121F; --accent-soft: #2C2340;
+  --gold: #E7B24A; --good: #6CCB98; --good-soft: #1C3328; --bad: #F2877F;
+  --ticket: #262A3B; --ticket-ink: #ECEDF3;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+}
+.theme-switch { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; box-shadow: var(--shadow); }
+.theme-switch button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 999px; background: none; color: var(--muted); }
+.theme-switch button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.theme-switch svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); background: var(--bg); color: var(--ink); font: 15px/1.5 Figtree, system-ui, -apple-system, "Segoe UI", sans-serif; }

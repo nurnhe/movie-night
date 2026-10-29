@@ -8,6 +8,8 @@ When you add a title, **Share with** decides who sees it: **Everyone**, **Only m
 
 Unwatched titles also show **On Netflix** / **On HBO Max** badges when they're included with a subscription in Serbia, and the **Streaming in Serbia** filter narrows the list to them. Availability comes from TMDB's watch-provider data (supplied by JustWatch), is looked up when the app opens, and is kept for a day in each person's browser only, never in the shared database. To use another country, change `REGION` in `src/lib/availability.ts`.
 
+The switch at the top picks Auto (follows your device), Light or Dark. The choice is saved under `nurnhe-theme`, shared with the other apps on nurnhe.github.io, so switching it in one switches them all.
+
 - **Frontend:** React + Vite, deployed to GitHub Pages as an installable web app (manifest, icons and service worker in `public/`)
 - **Shared list and sign-in:** Firebase (Cloud Firestore, email sign-in links, live updates), free Spark plan
 - **Movie data:** [TMDB](https://www.themoviedb.org/) API. Letterboxd has no public API, so each movie links to its Letterboxd page instead (Letterboxd uses TMDB ids too).

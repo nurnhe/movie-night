@@ -23,6 +23,7 @@ import { PickPanel } from "./components/PickPanel";
 import { TmdbCredit } from "./components/TmdbCredit";
 import { NameEditor } from "./components/NameEditor";
 import { InstallApp } from "./components/InstallApp";
+import { ThemeSwitch } from "./components/ThemeSwitch";
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -231,6 +232,7 @@ function Queue({ email }: { email: string }) {
           <NameEditor me={me} people={people} onSave={(name) => setMyName(me, name)} />
           <span className="sync"><span className={"dot" + (live ? " live" : "")} />{live ? "Synced" : "Connecting…"}</span>
           <InstallApp />
+          <ThemeSwitch />
           <button className="btn ghost small" onClick={signOut}>Sign out</button>
         </div>
       </header>
