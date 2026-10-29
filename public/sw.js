@@ -1,7 +1,7 @@
 // Lets the installed app open without a connection. Only this site's own files are cached:
 // Firebase and TMDB requests always go to the network, so the shared list is never served stale from here.
 // Other apps on nurnhe.github.io share this cache storage, so only old Movie Night caches are removed.
-const CACHE = "movie-night-v2";
+const CACHE = "movie-night-v3";
 const SHELL = ["./", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
