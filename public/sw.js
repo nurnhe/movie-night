@@ -1,6 +1,6 @@
 // Lets the installed app open without a connection. Only this site's own files are cached:
 // Firebase and TMDB requests always go to the network, so the shared list is never served stale from here.
-const CACHE = "movie-night-v1";
+const CACHE = "movie-night-v2";
 const SHELL = ["./", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {

@@ -2,7 +2,7 @@
   "name": "Movie Night Queue",
   "short_name": "Movie Night",
   "description": "A shared watchlist: add titles, filter them, and let the app pick tonight's movie.",
-  "id": "./",
+  "id": "/movie-night/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
